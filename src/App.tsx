@@ -10,6 +10,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Landing from "./pages/Landing";
 import Features from "./pages/Features";
 import FAQ from "./pages/FAQ";
+import Roadmap from "./pages/Roadmap";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Index from "./pages/Index";
@@ -30,6 +31,7 @@ const App = () => (
             <Route path="/" element={<Landing />} />
             <Route path="/features" element={<Features />} />
             <Route path="/faq" element={<FAQ />} />
+            <Route path="/roadmap" element={<Roadmap />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
 

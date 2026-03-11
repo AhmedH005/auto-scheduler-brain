@@ -43,6 +43,7 @@ export default function FAQ() {
             <ThemeSwitcher />
             <LanguageSwitcher />
             <Link to="/features" className="text-sm text-muted-foreground hover:text-foreground transition-colors">{t('nav.features')}</Link>
+            <Link to="/roadmap" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Roadmap</Link>
             <Link to="/faq" className="text-sm text-foreground font-medium">{t('nav.faq')}</Link>
             <Button asChild size="sm">
               <Link to="/signup">{t('nav.signup')}</Link>
