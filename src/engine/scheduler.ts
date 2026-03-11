@@ -8,13 +8,11 @@ function timeToMinutes(time: string): number {
   return h * 60 + m;
 }
 
-/** Parse yyyy-MM-dd as LOCAL date (not UTC) */
 function parseLocalDate(dateStr: string): Date {
   const [year, month, day] = dateStr.split('-').map(Number);
   return new Date(year, month - 1, day);
 }
 
-/** Format a local Date to yyyy-MM-ddTHH:mm:ss (no timezone shift) */
 function formatLocalDateTime(date: Date): string {
   const y = date.getFullYear();
   const mo = String(date.getMonth() + 1).padStart(2, '0');
@@ -36,12 +34,8 @@ function getInstanceKey(taskId: string, instanceDate: string): string {
   return `${taskId}::${instanceDate || 'any'}`;
 }
 
-/** Default planning horizon in days when no deadline extends further */
 const DEFAULT_HORIZON_DAYS = 28;
 
-/**
- * Compute the scheduling range based on task deadlines and a default horizon.
- */
 function computeRange(tasks: Task[]): { rangeStart: Date; rangeEnd: Date } {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -70,17 +64,11 @@ function computeRange(tasks: Task[]): { rangeStart: Date; rangeEnd: Date } {
   return { rangeStart, rangeEnd: latest };
 }
 
-/**
- * Get the current local time as minutes since midnight.
- */
 function getCurrentTimeMinutes(): number {
   const now = new Date();
   return now.getHours() * 60 + now.getMinutes();
 }
 
-/**
- * Get today's date string in yyyy-MM-dd format.
- */
 function getTodayStr(): string {
   return format(new Date(), 'yyyy-MM-dd');
 }
@@ -101,12 +89,12 @@ function hasTimeConflict(results: ScheduledBlock[], startDt: Date, endDt: Date):
 export function rebuildSchedule(
   tasks: Task[],
   lockedBlocks: ScheduledBlock[],
-  settings: UserSettings = DEFAULT_SETTINGS
+  settings: UserSettings = DEFAULT_SETTINGS,
 ): ScheduledBlock[] {
   const { rangeStart, rangeEnd } = computeRange(tasks);
+
   const results: ScheduledBlock[] = [...lockedBlocks.filter(b => b.locked)];
 
-  // ── Handle fixed tasks first ──
   // Fixed tasks with explicit start/end datetimes get placed as locked blocks
   const fixedTaskIds = new Set<string>();
   for (const task of tasks) {
@@ -132,9 +120,7 @@ export function rebuildSchedule(
     }
   }
 
-  // ── Handle anchor tasks ──
-  // Anchor tasks with window times get placed as locked/protected blocks
-  // For recurring anchors, each instance gets a protected block
+  // Anchor tasks get locked/protected blocks; recurring anchors get one per instance
   const anchorTaskIds = new Set<string>();
   const anchorBlocks: ScheduledBlock[] = [];
   for (const task of tasks) {
@@ -214,7 +200,6 @@ export function rebuildSchedule(
   );
   schedulableInstances.sort((a, b) => calculateScore(b.task) - calculateScore(a.task));
 
-  // ── Build dayStates for every day in the range ──
   const dayStates: Map<string, DayState> = new Map();
   const totalDays = Math.ceil((rangeEnd.getTime() - rangeStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
   const todayStr = getTodayStr();
@@ -300,15 +285,6 @@ export function rebuildSchedule(
   }
 
   return results;
-}
-
-/** @deprecated Use rebuildSchedule instead */
-export function rebuildWeek(
-  tasks: Task[],
-  lockedBlocks: ScheduledBlock[],
-  settings: UserSettings = DEFAULT_SETTINGS
-): ScheduledBlock[] {
-  return rebuildSchedule(tasks, lockedBlocks, settings);
 }
 
 function scheduleInstance(

@@ -1,9 +1,10 @@
 import React, { useMemo, useCallback, useState, useRef, useEffect } from 'react';
 import { ScheduledBlock, Task, UserSettings } from '@/types/task';
 import { format, startOfWeek, addDays, addWeeks, isToday } from 'date-fns';
-import { Lock, Unlock, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
+import { Lock, Unlock, ChevronLeft, ChevronRight, Trash2, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getTaskColor } from '@/lib/taskColors';
+import { GoogleIcon } from '@/components/GoogleIcon';
 import { useTranslation } from 'react-i18next';
 
 interface WeekViewProps {
@@ -16,6 +17,7 @@ interface WeekViewProps {
   onUnlockBlock: (blockId: string) => void;
   onDeleteBlock: (blockId: string) => void;
   onQuickAdd: (date: string, time: string) => void;
+  onEditTask?: (task: Task) => void;
 }
 
 const HOUR_HEIGHT = 60;
@@ -104,6 +106,7 @@ export function WeekView({
   onUnlockBlock,
   onDeleteBlock,
   onQuickAdd,
+  onEditTask,
 }: WeekViewProps) {
   const { t } = useTranslation();
   const [weekOffset, setWeekOffset] = useState(0);
@@ -123,8 +126,8 @@ export function WeekView({
 
   useEffect(() => {
     if (!selectedBlockId) return;
-    const handler = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
+    const handler = (ev: MouseEvent) => {
+      const target = ev.target as HTMLElement;
       if (!target.closest('[data-block-popover]') && !target.closest('[data-block]')) {
         setSelectedBlockId(null);
       }
@@ -418,13 +421,19 @@ export function WeekView({
                   </div>
                 )}
 
-                {/* Blocks */}
+                {/* Blocks (includes external calendar events) */}
                 {dayBlocks.map(block => {
                   const task = taskMap.get(block.task_id);
                   const posStyle = getBlockStyle(block);
-                  const colorStyle = getBlockInlineStyle(block, task);
                   const isDragging = dragState?.blockId === block.id;
                   const isSelected = selectedBlockId === block.id;
+
+                  // Synced tasks use calendar color; native tasks use task color.
+                  const isSynced = !!task?.sync_source;
+                  const extColor = task?.calendar_color ?? '#6b7280';
+                  const colorStyle: React.CSSProperties = isSynced
+                    ? { borderLeftColor: extColor, backgroundColor: `${extColor}22` }
+                    : getBlockInlineStyle(block, task);
 
                   // Compute side-by-side layout for overlapping blocks
                   const layout = isDragging
@@ -464,14 +473,18 @@ export function WeekView({
                           <div className="text-[9px] font-mono text-muted-foreground">
                             {format(new Date(block.start_time), 'HH:mm')}–{format(new Date(block.end_time), 'HH:mm')}
                           </div>
-                          {task?.description && (
+                          {!isSynced && task?.description && (
                             <div className="text-[9px] font-sans text-muted-foreground/70 truncate leading-tight mt-0.5">
                               {task.description}
                             </div>
                           )}
                         </div>
                         <div className="flex items-center gap-0.5 shrink-0">
-                          {block.locked && <Lock className="w-3 h-3 text-block-locked" />}
+                          {isSynced ? (
+                            <GoogleIcon size={9} className="opacity-70" />
+                          ) : (
+                            block.locked && <Lock className="w-3 h-3 text-block-locked" />
+                          )}
                         </div>
                       </div>
 
@@ -483,6 +496,17 @@ export function WeekView({
                           onMouseDown={e => e.stopPropagation()}
                         >
                           <div className="flex items-center gap-0.5 bg-card border border-border rounded-md shadow-lg px-1 py-0.5">
+                            {onEditTask && task && (
+                              <>
+                                <button
+                                  className="p-1 rounded-sm transition-colors text-[10px] font-mono flex items-center gap-1 text-muted-foreground hover:bg-secondary"
+                                  onClick={e => { e.stopPropagation(); onEditTask(task); setSelectedBlockId(null); }}
+                                >
+                                  <Pencil className="w-3 h-3" /><span>Edit</span>
+                                </button>
+                                <div className="w-px h-4 bg-border" />
+                              </>
+                            )}
                             <button
                               className="p-1 rounded-sm transition-colors text-[10px] font-mono flex items-center gap-1 text-muted-foreground hover:bg-secondary"
                               onClick={e => {
@@ -498,11 +522,7 @@ export function WeekView({
                             <div className="w-px h-4 bg-border" />
                             <button
                               className="p-1 rounded-sm text-destructive/70 hover:text-destructive hover:bg-destructive/10 transition-colors text-[10px] font-mono flex items-center gap-1"
-                              onClick={e => {
-                                e.stopPropagation();
-                                onDeleteBlock(block.id);
-                                setSelectedBlockId(null);
-                              }}
+                              onClick={e => { e.stopPropagation(); onDeleteBlock(block.id); setSelectedBlockId(null); }}
                             >
                               <Trash2 className="w-3 h-3" /><span>{t('calendar.delete')}</span>
                             </button>

@@ -81,7 +81,19 @@
     "maxDeepHrs": "Max Deep hrs/day",
     "maxTotalHrs": "Max Total hrs/day",
     "minChunk": "Min Chunk (min)",
-    "resetDefaults": "Reset Defaults"
+    "resetDefaults": "Reset Defaults",
+    "calendarIntegrations": "Calendar Integrations"
+  },
+  "calendarIntegrations": {
+    "title": "Calendar Integrations",
+    "notConfigured": "Google Client ID not set",
+    "notConfiguredDesc": "Add your Google OAuth Client ID to the environment to enable Google Calendar import.",
+    "connecting": "Connecting to Google…",
+    "syncing": "Syncing calendars…",
+    "connectedAccounts": "Connected accounts",
+    "connectGoogle": "Connect Google Calendar",
+    "addAnotherGoogle": "Add another Google account",
+    "note": "Imported events appear as busy blocks in your schedule. The scheduler will not place tasks on top of them."
   },
   "auth": {
     "loginTitle": "Welcome back",

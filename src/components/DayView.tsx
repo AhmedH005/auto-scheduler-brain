@@ -1,9 +1,10 @@
 import React, { useMemo, useCallback, useState, useRef, useEffect } from 'react';
 import { ScheduledBlock, Task, UserSettings } from '@/types/task';
 import { format, addDays, isToday } from 'date-fns';
-import { Lock, Unlock, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
+import { Lock, Unlock, ChevronLeft, ChevronRight, Trash2, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getTaskColor } from '@/lib/taskColors';
+import { GoogleIcon } from '@/components/GoogleIcon';
 import { useTranslation } from 'react-i18next';
 
 interface DayViewProps {
@@ -18,6 +19,7 @@ interface DayViewProps {
   onUnlockBlock: (blockId: string) => void;
   onDeleteBlock: (blockId: string) => void;
   onQuickAdd: (date: string, time: string) => void;
+  onEditTask?: (task: Task) => void;
 }
 
 const HOUR_HEIGHT = 60;
@@ -40,7 +42,7 @@ function yToMinutes(y: number): number {
 
 export function DayView({
   blocks, tasks, settings, selectedDate, onDateChange,
-  onMoveBlock, onResizeBlock, onLockBlock, onUnlockBlock, onDeleteBlock, onQuickAdd,
+  onMoveBlock, onResizeBlock, onLockBlock, onUnlockBlock, onDeleteBlock, onQuickAdd, onEditTask,
 }: DayViewProps) {
   const { t } = useTranslation();
   const dateStr = format(selectedDate, 'yyyy-MM-dd');
@@ -61,9 +63,11 @@ export function DayView({
 
   useEffect(() => {
     if (!selectedBlockId) return;
-    const handler = (e: MouseEvent) => {
-      const t = e.target as HTMLElement;
-      if (!t.closest('[data-block-popover]') && !t.closest('[data-block]')) setSelectedBlockId(null);
+    const handler = (ev: MouseEvent) => {
+      const target = ev.target as HTMLElement;
+      if (!target.closest('[data-block-popover]') && !target.closest('[data-block]')) {
+        setSelectedBlockId(null);
+      }
     };
     window.addEventListener('mousedown', handler);
     return () => window.removeEventListener('mousedown', handler);
@@ -263,13 +267,18 @@ export function DayView({
               </div>
             )}
 
-            {/* Blocks */}
+            {/* Blocks (includes external calendar events) */}
             {dayBlocks.map(block => {
               const task = taskMap.get(block.task_id);
               const posStyle = getBlockStyle(block);
-              const colorStyle = getBlockInlineStyle(block, task);
               const isDragging = dragState?.blockId === block.id;
               const isSelected = selectedBlockId === block.id;
+
+              const isSynced = !!task?.sync_source;
+              const extColor = task?.calendar_color ?? '#6b7280';
+              const colorStyle: React.CSSProperties = isSynced
+                ? { borderLeftColor: extColor, backgroundColor: `${extColor}22` }
+                : getBlockInlineStyle(block, task);
 
               const layout = isDragging
                 ? { col: 0, total: 1 }
@@ -294,18 +303,34 @@ export function DayView({
                 >
                   <div className="flex items-start justify-between gap-1 h-full overflow-hidden">
                     <div className="min-w-0 flex-1">
-                      <div className="text-xs font-mono font-medium leading-tight truncate text-foreground">{task?.title || 'Unknown'}</div>
+                      <div className="text-xs font-mono font-medium leading-tight truncate text-foreground">
+                        {task?.title || 'Unknown'}
+                      </div>
                       <div className="text-[10px] font-mono text-muted-foreground">{format(new Date(block.start_time), 'HH:mm')}–{format(new Date(block.end_time), 'HH:mm')}</div>
-                      {task?.description && (
+                      {!isSynced && task?.description && (
                         <div className="text-[10px] font-sans text-muted-foreground/70 truncate leading-tight mt-0.5">{task.description}</div>
                       )}
                     </div>
-                    {block.locked && <Lock className="w-3 h-3 text-block-locked shrink-0" />}
+                    <div className="shrink-0">
+                      {isSynced ? (
+                        <GoogleIcon size={9} className="opacity-70" />
+                      ) : (
+                        block.locked && <Lock className="w-3 h-3 text-block-locked" />
+                      )}
+                    </div>
                   </div>
 
                   {isSelected && (
                     <div data-block-popover className="absolute -top-9 left-0 right-0 z-30 flex items-center justify-center gap-1" onMouseDown={e => e.stopPropagation()}>
                       <div className="flex items-center gap-0.5 bg-card border border-border rounded-md shadow-lg px-1 py-0.5">
+                        {onEditTask && task && (
+                          <>
+                            <button className="p-1 rounded-sm transition-colors text-[10px] font-mono flex items-center gap-1 text-muted-foreground hover:bg-secondary" onClick={e => { e.stopPropagation(); onEditTask(task); setSelectedBlockId(null); }}>
+                              <Pencil className="w-3 h-3" /><span>Edit</span>
+                            </button>
+                            <div className="w-px h-4 bg-border" />
+                          </>
+                        )}
                         <button className="p-1 rounded-sm transition-colors text-[10px] font-mono flex items-center gap-1 text-muted-foreground hover:bg-secondary" onClick={e => { e.stopPropagation(); block.locked ? onUnlockBlock(block.id) : onLockBlock(block.id); setSelectedBlockId(null); }}>
                           {block.locked ? <><Unlock className="w-3 h-3" /><span>{t('calendar.unlock')}</span></> : <><Lock className="w-3 h-3" /><span>{t('calendar.lock')}</span></>}
                         </button>

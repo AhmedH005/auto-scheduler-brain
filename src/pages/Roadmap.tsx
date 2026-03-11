@@ -12,8 +12,6 @@ import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 import { useTranslation } from 'react-i18next';
 import type { ReactNode } from 'react';
 
-// ─── Static per-engine style + icon config (not translatable) ─────────────────
-
 interface EngineMeta {
   icon: ReactNode;
   statusClass: string;
@@ -79,8 +77,6 @@ const OVERVIEW_STYLE = [
   'border-amber-500/30 bg-amber-500/5',
 ];
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
 interface RoadmapEngine {
   phase: string;
   status: string;
@@ -118,8 +114,6 @@ interface RoadmapCta {
   seeFeatures: string;
 }
 
-// ─── Component ─────────────────────────────────────────────────────────────────
-
 export default function Roadmap() {
   const { t } = useTranslation();
 
@@ -136,7 +130,6 @@ export default function Roadmap() {
   return (
     <div className="min-h-screen bg-background text-foreground">
 
-      {/* ── Nav ───────────────────────────────────────────────────────────── */}
       <nav className="border-b border-border/50 bg-background/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2 font-semibold text-primary">
@@ -156,7 +149,6 @@ export default function Roadmap() {
         </div>
       </nav>
 
-      {/* ── Hero ──────────────────────────────────────────────────────────── */}
       <section className="max-w-4xl mx-auto px-6 pt-24 pb-16 text-center">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-medium mb-8">
           <Layers className="h-3 w-3" />
@@ -174,7 +166,6 @@ export default function Roadmap() {
         </p>
       </section>
 
-      {/* ── Phase overview bar ─────────────────────────────────────────────── */}
       <section className="max-w-4xl mx-auto px-6 pb-20">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {overviewEngines.map(e => (
@@ -187,7 +178,6 @@ export default function Roadmap() {
         </div>
       </section>
 
-      {/* ── Timeline ──────────────────────────────────────────────────────── */}
       <section className="max-w-4xl mx-auto px-6 pb-24">
         <div className="space-y-6">
 
@@ -264,7 +254,6 @@ export default function Roadmap() {
             );
           })}
 
-          {/* ── Phase 04: Life OS ─────────────────────────────────────────── */}
           <div className="relative rounded-xl border border-amber-500/20 overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 via-card to-violet-500/5 pointer-events-none" />
 
@@ -328,7 +317,6 @@ export default function Roadmap() {
         </div>
       </section>
 
-      {/* ── CTA ───────────────────────────────────────────────────────────── */}
       <section className="border-t border-border bg-card/30">
         <div className="max-w-4xl mx-auto px-6 py-24 text-center">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-medium mb-8">
@@ -352,7 +340,6 @@ export default function Roadmap() {
         </div>
       </section>
 
-      {/* ── Footer ────────────────────────────────────────────────────────── */}
       <footer className="border-t border-border/50">
         <div className="max-w-6xl mx-auto px-6 py-8 flex items-center justify-between text-sm text-muted-foreground">
           <div className="flex items-center gap-2">

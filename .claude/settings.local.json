@@ -3,7 +3,8 @@
     "allow": [
       "Bash(npm install:*)",
       "Bash(npx tsc:*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(find '/Users/ahmedh005/Downloads/auto-scheduler-brain-main 2' -not -path */node_modules/* -not -path */dist/* -not -path */.git/* -type f)"
     ]
   }
 }

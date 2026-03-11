@@ -2,8 +2,6 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { calculateScore, sortByScore, URGENCY_WEIGHT, IMPORTANCE_WEIGHT, ENERGY_WEIGHT } from '@/engine/scoring';
 import { Task } from '@/types/task';
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
-
 function makeTask(overrides: Partial<Task>): Task {
   return {
     id: 'test',
@@ -39,8 +37,6 @@ function pinDate() {
   vi.spyOn(Date, 'now').mockReturnValue(TODAY);
 }
 
-// ─── Weights ─────────────────────────────────────────────────────────────────
-
 describe('weight constants', () => {
   it('exports the specified weights', () => {
     expect(URGENCY_WEIGHT).toBe(3);
@@ -48,8 +44,6 @@ describe('weight constants', () => {
     expect(ENERGY_WEIGHT).toBe(1.5);
   });
 });
-
-// ─── Urgency component ────────────────────────────────────────────────────────
 
 describe('urgency component', () => {
   it('tasks with no deadline get a 0.1 baseline urgency', () => {
@@ -85,8 +79,6 @@ describe('urgency component', () => {
   });
 });
 
-// ─── Importance component ─────────────────────────────────────────────────────
-
 describe('importance component', () => {
   it('P5 scores higher importance than P1', () => {
     pinDate();
@@ -102,8 +94,6 @@ describe('importance component', () => {
     expect(calculateScore(p1urgent)).toBeGreaterThan(calculateScore(p5lazy));
   });
 });
-
-// ─── Energy component ─────────────────────────────────────────────────────────
 
 describe('energy matching', () => {
   it('deep task scores highest in the morning (hour 9)', () => {
@@ -138,8 +128,6 @@ describe('energy matching', () => {
     expect(withSlot).toBeGreaterThan(withoutSlot);
   });
 });
-
-// ─── sortByScore ──────────────────────────────────────────────────────────────
 
 describe('sortByScore', () => {
   it('returns tasks sorted descending by score', () => {

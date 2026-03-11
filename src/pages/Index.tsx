@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { toast } from 'sonner';
 import { useScheduler } from '@/hooks/useScheduler';
 import { WeekView } from '@/components/WeekView';
 import { DayView } from '@/components/DayView';
@@ -6,14 +7,16 @@ import { MonthView } from '@/components/MonthView';
 import { TaskForm } from '@/components/TaskForm';
 import { TaskList } from '@/components/TaskList';
 import { SettingsPanel } from '@/components/SettingsPanel';
+import { CalendarIntegrationsPanel } from '@/components/CalendarIntegrationsPanel';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 import { Task } from '@/types/task';
+import { useExternalCalendars } from '@/hooks/useExternalCalendars';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, Plus, Settings, Brain, ChevronLeft, ChevronRight, CalendarDays, Calendar, LayoutGrid } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-type SidePanel = 'tasks' | 'add' | 'edit' | 'settings' | null;
+type SidePanel = 'tasks' | 'add' | 'edit' | 'settings' | 'integrations' | null;
 type CalendarView = 'day' | 'week' | 'month';
 
 const Index = () => {
@@ -22,8 +25,25 @@ const Index = () => {
     tasks, blocks, settings,
     addTask, updateTask, deleteTask,
     lockBlock, unlockBlock, deleteBlock, moveBlock, resizeBlock,
-    rebuild, updateSettings,
+    rebuild, updateSettings, importSyncedTasks,
   } = useScheduler();
+
+  const {
+    accounts: calAccounts,
+    calendars: calCalendars,
+    syncedTasks,
+    syncStatus,
+    syncError,
+    connectGoogle,
+    syncAccount,
+    disconnectAccount,
+    toggleCalendar,
+  } = useExternalCalendars();
+
+  // Import new synced tasks into native AXIS tasks on first sync.
+  useEffect(() => {
+    if (syncedTasks.length > 0) importSyncedTasks(syncedTasks);
+  }, [syncedTasks]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [sidePanel, setSidePanel] = useState<SidePanel>('tasks');
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -32,10 +52,24 @@ const Index = () => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [quickAddDate, setQuickAddDate] = useState<string | undefined>();
   const [quickAddTime, setQuickAddTime] = useState<string | undefined>();
+  const rebuildPendingRef = useRef(false);
 
   useEffect(() => {
     if (tasks.length > 0 && blocks.length === 0) rebuild();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (rebuildPendingRef.current) {
+      rebuildPendingRef.current = false;
+      const placed = blocks.filter(b => !b.locked).length;
+      toast.success(`Schedule rebuilt — ${placed} block${placed !== 1 ? 's' : ''} placed`);
+    }
+  }, [blocks]);
+
+  const handleRebuild = () => {
+    rebuildPendingRef.current = true;
+    rebuild();
+  };
 
   const handleAddTask = (task: Task) => {
     addTask(task);
@@ -105,7 +139,11 @@ const Index = () => {
 
           <div className="flex-1 overflow-y-auto px-2 py-2">
             {sidePanel === 'tasks' && (
-              <TaskList tasks={tasks} onEdit={t => { setEditingTask(t); setSidePanel('edit'); }} onDelete={handleDeleteTask} />
+              <TaskList
+                tasks={tasks}
+                onEdit={t => { setEditingTask(t); setSidePanel('edit'); }}
+                onDelete={handleDeleteTask}
+              />
             )}
             {sidePanel === 'add' && (
               <TaskForm
@@ -121,12 +159,30 @@ const Index = () => {
               <TaskForm initialTask={editingTask} onSubmit={handleUpdateTask} onClose={() => { setEditingTask(null); setSidePanel('tasks'); }} existingBlocks={blocks} existingTasks={tasks} />
             )}
             {sidePanel === 'settings' && (
-              <SettingsPanel settings={settings} onUpdate={updateSettings} onClose={() => setSidePanel('tasks')} />
+              <SettingsPanel
+                settings={settings}
+                onUpdate={updateSettings}
+                onClose={() => setSidePanel('tasks')}
+                onOpenIntegrations={() => setSidePanel('integrations')}
+              />
+            )}
+            {sidePanel === 'integrations' && (
+              <CalendarIntegrationsPanel
+                accounts={calAccounts}
+                calendars={calCalendars}
+                syncStatus={syncStatus}
+                syncError={syncError}
+                onClose={() => setSidePanel('settings')}
+                onConnectGoogle={connectGoogle}
+                onSyncAccount={syncAccount}
+                onDisconnectAccount={disconnectAccount}
+                onToggleCalendar={toggleCalendar}
+              />
             )}
           </div>
 
           <div className="px-2 py-2 border-t border-border">
-            <Button onClick={rebuild} className="w-full font-mono text-xs tracking-wider h-8 animate-pulse-glow" size="sm">
+            <Button onClick={handleRebuild} className="w-full font-mono text-xs tracking-wider h-8 animate-pulse-glow" size="sm">
               <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
               {t('sidebar.rebuildSchedule')}
             </Button>
@@ -174,6 +230,7 @@ const Index = () => {
               onMoveBlock={moveBlock} onResizeBlock={resizeBlock}
               onLockBlock={lockBlock} onUnlockBlock={unlockBlock}
               onDeleteBlock={deleteBlock} onQuickAdd={handleQuickAdd}
+              onEditTask={t => { setEditingTask(t); setSidebarOpen(true); setSidePanel('edit'); }}
             />
           )}
           {calendarView === 'week' && (
@@ -182,6 +239,7 @@ const Index = () => {
               onMoveBlock={moveBlock} onResizeBlock={resizeBlock}
               onLockBlock={lockBlock} onUnlockBlock={unlockBlock}
               onDeleteBlock={deleteBlock} onQuickAdd={handleQuickAdd}
+              onEditTask={t => { setEditingTask(t); setSidebarOpen(true); setSidePanel('edit'); }}
             />
           )}
           {calendarView === 'month' && (

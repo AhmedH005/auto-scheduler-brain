@@ -81,7 +81,19 @@
     "maxDeepHrs": "Max h. focus/j",
     "maxTotalHrs": "Max h. total/j",
     "minChunk": "Bloc min (min)",
-    "resetDefaults": "Réinitialiser"
+    "resetDefaults": "Réinitialiser",
+    "calendarIntegrations": "Intégrations de calendrier"
+  },
+  "calendarIntegrations": {
+    "title": "Intégrations de calendrier",
+    "notConfigured": "Client ID Google non configuré",
+    "notConfiguredDesc": "Ajoutez votre Client ID OAuth Google à l'environnement pour activer l'import Google Agenda.",
+    "connecting": "Connexion à Google…",
+    "syncing": "Synchronisation des calendriers…",
+    "connectedAccounts": "Comptes connectés",
+    "connectGoogle": "Connecter Google Agenda",
+    "addAnotherGoogle": "Ajouter un autre compte Google",
+    "note": "Les événements importés apparaissent comme des blocs occupés dans votre planning. Le planificateur ne placera pas de tâches par-dessus."
   },
   "auth": {
     "loginTitle": "Bon retour",

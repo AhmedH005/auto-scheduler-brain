@@ -2,6 +2,7 @@ import { Task } from '@/types/task';
 import { calculateScore } from '@/engine/scoring';
 import { Trash2, Clock, Zap, Shield, Pin, Calendar } from 'lucide-react';
 import { getTaskColor } from '@/lib/taskColors';
+import { GoogleIcon } from '@/components/GoogleIcon';
 import { useTranslation } from 'react-i18next';
 
 interface TaskListProps {
@@ -12,7 +13,7 @@ interface TaskListProps {
 
 export function TaskList({ tasks, onEdit, onDelete }: TaskListProps) {
   const { t } = useTranslation();
-  const activeTasks = tasks.filter(t => t.status === 'active');
+  const activeTasks = tasks.filter(task => task.status === 'active');
   const sorted = [...activeTasks].sort((a, b) => calculateScore(b) - calculateScore(a));
 
   if (sorted.length === 0) {
@@ -42,15 +43,22 @@ export function TaskList({ tasks, onEdit, onDelete }: TaskListProps) {
           ? t('taskForm.mode.fixed')
           : null;
 
+        const dotColor = task.calendar_color ?? taskColor.border;
+
         return (
           <div
             key={task.id}
             className="group flex items-start gap-2.5 px-2.5 py-2 rounded-md hover:bg-secondary/80 transition-colors cursor-pointer border border-transparent hover:border-border"
             onClick={() => onEdit(task)}
           >
-            <div className="w-2 h-2 rounded-full shrink-0 mt-1.5" style={{ backgroundColor: taskColor.border }} />
+            <div className="w-2 h-2 rounded-full shrink-0 mt-1.5" style={{ backgroundColor: dotColor }} />
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-sans truncate text-foreground leading-tight">{task.title}</div>
+              <div className="flex items-center gap-1.5">
+                <div className="text-sm font-sans truncate text-foreground leading-tight">{task.title}</div>
+                {task.sync_source === 'google' && (
+                  <GoogleIcon size={9} className="shrink-0 opacity-60" />
+                )}
+              </div>
               <div className="flex items-center gap-2 mt-1 text-[10px] font-mono text-muted-foreground flex-wrap">
                 {task.scheduling_mode !== 'fixed' && (
                   <span className="flex items-center gap-0.5">
@@ -80,12 +88,20 @@ export function TaskList({ tasks, onEdit, onDelete }: TaskListProps) {
               </div>
             </div>
             <div className="flex flex-col items-end gap-1 shrink-0">
-              <div className="text-[9px] font-mono text-primary/60">
-                {score.toFixed(1)}
+              <div className={`text-[9px] font-mono px-1.5 py-0.5 rounded-full border ${
+                score >= 4.0
+                  ? 'text-destructive bg-destructive/10 border-destructive/30'
+                  : score >= 2.8
+                  ? 'text-orange-400 bg-orange-500/10 border-orange-500/30'
+                  : score >= 1.5
+                  ? 'text-muted-foreground bg-secondary border-border'
+                  : 'text-muted-foreground/50 bg-transparent border-transparent'
+              }`}>
+                {score >= 4.0 ? 'Critical' : score >= 2.8 ? 'High' : score >= 1.5 ? 'Normal' : 'Low'}
               </div>
               <button
                 onClick={e => { e.stopPropagation(); onDelete(task.id); }}
-                className="opacity-0 group-hover:opacity-100 text-destructive/50 hover:text-destructive transition-all p-0.5"
+                className="opacity-30 group-hover:opacity-100 text-destructive/50 hover:text-destructive transition-all p-0.5"
               >
                 <Trash2 className="w-3 h-3" />
               </button>
@@ -93,6 +109,7 @@ export function TaskList({ tasks, onEdit, onDelete }: TaskListProps) {
           </div>
         );
       })}
+
     </div>
   );
 }

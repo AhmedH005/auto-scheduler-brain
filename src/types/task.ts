@@ -26,6 +26,10 @@ export interface Task {
   recurrence_end: string | null; // yyyy-MM-dd
   status: TaskStatus;
   created_at: string;
+  // Present only on tasks synced from external calendar providers
+  sync_source?: 'google' | 'microsoft';
+  provider_event_id?: string;
+  calendar_color?: string; // hex color from the provider calendar
 }
 
 export interface ScheduledBlock {
@@ -54,14 +58,6 @@ export interface TaskInstance {
   task: Task;
   instance_date: string; // yyyy-MM-dd
   remaining_duration: number; // minutes
-}
-
-// Internal tracking (no UI yet)
-export interface TaskMetrics {
-  task_id: string;
-  completions: number;
-  reschedules: number;
-  total_scheduled_minutes: number;
 }
 
 export const DEFAULT_SETTINGS: UserSettings = {

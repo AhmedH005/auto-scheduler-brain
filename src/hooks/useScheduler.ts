@@ -43,16 +43,18 @@ function normalizeBlocks(blocks: ScheduledBlock[]): ScheduledBlock[] {
   );
 }
 
-// ─── Supabase sync helpers ────────────────────────────────────────────────────
-
 async function getUserId(): Promise<string | null> {
   const { data } = await supabase.auth.getUser();
   return data.user?.id ?? null;
 }
 
+/** Tasks whose IDs start with 'synced-' are imported from external calendars.
+ *  They must NOT be saved to the tasks table — they live in external_calendar_events. */
+const isSyncedId = (id: string) => id.startsWith('synced-');
+
 async function syncTasksToSupabase(tasks: Task[], userId: string) {
   if (!userId) return;
-  const rows = tasks.map((t) => ({
+  const rows = tasks.filter(t => !isSyncedId(t.id)).map((t) => ({
     id: t.id,
     user_id: userId,
     title: t.title,
@@ -166,11 +168,24 @@ function mapDbSettingsToSettings(row: Record<string, unknown>): UserSettings {
   };
 }
 
-// ─── Main hook ───────────────────────────────────────────────────────────────
-
 export function useScheduler() {
-  const [tasks, setTasks] = useState<Task[]>(() => loadFromStorage(TASKS_KEY, []));
-  const [blocks, setBlocks] = useState<ScheduledBlock[]>(() => normalizeBlocks(loadFromStorage(BLOCKS_KEY, [])));
+  const [tasks, setTasks] = useState<Task[]>(() => {
+    // Strip any old individual synced tasks from localStorage on startup.
+    // These are tasks with 'synced-' IDs that aren't the newer 'synced-rec-' format
+    // (individual fixed tasks created before the recurring-detection logic was added).
+    const stored: Task[] = loadFromStorage(TASKS_KEY, []);
+    const cleaned = stored.filter(t => !isSyncedId(t.id) || t.id.startsWith('synced-rec-'));
+    if (cleaned.length !== stored.length) {
+      saveToStorage(TASKS_KEY, cleaned);
+    }
+    return cleaned;
+  });
+  const [blocks, setBlocks] = useState<ScheduledBlock[]>(() => {
+    const stored: ScheduledBlock[] = loadFromStorage(BLOCKS_KEY, []);
+    const cleaned = stored.filter(b => !isSyncedId(b.task_id) || b.task_id.startsWith('synced-rec-'));
+    if (cleaned.length !== stored.length) saveToStorage(BLOCKS_KEY, cleaned);
+    return normalizeBlocks(cleaned);
+  });
   const [settings, setSettings] = useState<UserSettings>(() => loadFromStorage(SETTINGS_KEY, DEFAULT_SETTINGS));
 
   // Track user id for Supabase syncing
@@ -214,7 +229,14 @@ export function useScheduler() {
       if (cancelled) return;
 
       if (taskRows && taskRows.length > 0) {
-        const mapped = taskRows.map(mapDbTaskToTask);
+        // Filter out synced tasks that may have been accidentally saved to the tasks table,
+        // and clean them up from Supabase while we're at it.
+        const syncedInDb = taskRows.filter(r => isSyncedId(r.id as string));
+        if (syncedInDb.length > 0) {
+          supabase.from('tasks').delete().in('id', syncedInDb.map(r => r.id)).eq('user_id', uid);
+          supabase.from('scheduled_blocks').delete().in('task_id', syncedInDb.map(r => r.id)).eq('user_id', uid);
+        }
+        const mapped = taskRows.map(mapDbTaskToTask).filter(t => !isSyncedId(t.id));
         setTasks(mapped);
         saveToStorage(TASKS_KEY, mapped);
       }
@@ -249,12 +271,18 @@ export function useScheduler() {
 
   useEffect(() => {
     if (!hydrated || !userIdRef.current) return;
-    syncBlocksToSupabase(blocks, userIdRef.current);
+    syncBlocksToSupabase(blocks.filter(b => !isSyncedId(b.task_id)), userIdRef.current);
   }, [blocks, hydrated]);
 
+  const settingsSyncTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (!hydrated || !userIdRef.current) return;
-    syncSettingsToSupabase(settings, userIdRef.current);
+    if (settingsSyncTimer.current) clearTimeout(settingsSyncTimer.current);
+    const uid = userIdRef.current;
+    settingsSyncTimer.current = setTimeout(() => {
+      syncSettingsToSupabase(settings, uid);
+    }, 800);
+    return () => { if (settingsSyncTimer.current) clearTimeout(settingsSyncTimer.current); };
   }, [settings, hydrated]);
 
   const updateBlocksSafely = useCallback((updater: (prev: ScheduledBlock[]) => ScheduledBlock[]) => {
@@ -330,14 +358,30 @@ export function useScheduler() {
     );
   }, [updateBlocksSafely]);
 
+  /** Import tasks from Google/MS Calendar into the native tasks state.
+   *  Only adds tasks not already present (preserves any user edits to previously imported tasks). */
+  const importSyncedTasks = useCallback((incoming: Task[]) => {
+    setTasks(prev => {
+      // Use the 'synced-' ID prefix as the reliable marker for imported tasks
+      // (sync_source may be missing if a task was loaded from Supabase without that field).
+      // Strategy: keep native tasks + synced tasks whose ID is in the new batch
+      // (preserves user edits to still-valid synced tasks); drop all other synced tasks.
+      const incomingIds = new Set(incoming.map(t => t.id));
+      const native = prev.filter(t => !isSyncedId(t.id) || incomingIds.has(t.id));
+      const existingIds = new Set(native.map(t => t.id));
+      const toAdd = incoming.filter(t => !existingIds.has(t.id));
+      if (toAdd.length === 0 && native.length === prev.length) return prev;
+      return [...native, ...toAdd];
+    });
+  }, []);
+
   const rebuild = useCallback(() => {
     const activeTasks = tasks.filter(t => t.status === 'active');
-    const activeTaskIds = new Set(activeTasks.map(t => t.id));
-    // Only preserve locked blocks whose task still exists — prevents orphaned "Unknown" blocks
-    const rawLocked = blocks.filter(b => b.locked && activeTaskIds.has(b.task_id));
+    const allTaskIds = new Set(activeTasks.map(t => t.id));
+    // Preserve locked blocks whose task still exists.
+    const rawLocked = blocks.filter(b => b.locked && allTaskIds.has(b.task_id));
 
-    // Deduplicate overlapping locked blocks: if two locked blocks overlap in time,
-    // keep only the first one per time slot — the other gets re-scheduled freely.
+    // Deduplicate overlapping locked blocks.
     const deduped: typeof rawLocked = [];
     for (const block of rawLocked) {
       const start = new Date(block.start_time).getTime();
@@ -372,5 +416,6 @@ export function useScheduler() {
     resizeBlock,
     rebuild,
     updateSettings,
+    importSyncedTasks,
   };
 }

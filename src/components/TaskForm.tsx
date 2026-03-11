@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, X, Calendar, Clock, Zap, Repeat, Shield, Pin, Shuffle, AlertTriangle } from 'lucide-react';
+import { Plus, Check, X, Calendar, Clock, Zap, Repeat, Shield, Pin, Shuffle, AlertTriangle } from 'lucide-react';
 import { ScheduledBlock } from '@/types/task';
 import { TASK_COLORS, DEFAULT_COLOR_ID } from '@/lib/taskColors';
 import { useTranslation } from 'react-i18next';
@@ -151,6 +151,10 @@ export function TaskForm({ onSubmit, onClose, initialTask, existingBlocks = [], 
       recurrence_end: (isRecurring && recEnd) ? recEnd : null,
       status: 'active',
       created_at: initialTask?.created_at || new Date().toISOString(),
+      // Preserve sync metadata if editing an imported task
+      ...(initialTask?.sync_source    && { sync_source:       initialTask.sync_source }),
+      ...(initialTask?.provider_event_id && { provider_event_id: initialTask.provider_event_id }),
+      ...(initialTask?.calendar_color && { calendar_color:    initialTask.calendar_color }),
     };
 
     onSubmit(task);
@@ -159,7 +163,7 @@ export function TaskForm({ onSubmit, onClose, initialTask, existingBlocks = [], 
   const priorityLabels = t('taskForm.priorityLabels', { returnObjects: true }) as string[];
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4 animate-slide-in">
+    <form onSubmit={handleSubmit} onKeyDown={e => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') handleSubmit(e as unknown as React.FormEvent); }} className="flex flex-col gap-4 animate-slide-in">
       {/* Header */}
       <div className="flex items-center justify-between pb-1.5 border-b border-border">
         <h3 className="font-mono text-xs font-semibold text-primary tracking-widest uppercase">
@@ -232,7 +236,6 @@ export function TaskForm({ onSubmit, onClose, initialTask, existingBlocks = [], 
         ))}
       </div>
 
-      {/* ════════════════════════════════════ FLEXIBLE MODE ═══════════════════════ */}
       {mode === 'flexible' && (
         <>
           {/* Duration */}
@@ -240,7 +243,7 @@ export function TaskForm({ onSubmit, onClose, initialTask, existingBlocks = [], 
             <Label className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">
               {t('taskForm.duration')} — <span className="text-primary">{duration}m</span>
             </Label>
-            <div className="flex gap-1">
+            <div className="flex gap-1 items-center">
               {[15, 30, 45, 60, 90, 120].map(d => (
                 <button
                   key={d}
@@ -255,6 +258,15 @@ export function TaskForm({ onSubmit, onClose, initialTask, existingBlocks = [], 
                   {d}
                 </button>
               ))}
+              <Input
+                type="number"
+                min={5}
+                max={480}
+                step={5}
+                value={duration}
+                onChange={e => setDuration(Math.max(5, Number(e.target.value)))}
+                className="w-14 text-center text-[10px] font-mono bg-secondary border-border h-7 px-1"
+              />
             </div>
           </div>
 
@@ -351,7 +363,6 @@ export function TaskForm({ onSubmit, onClose, initialTask, existingBlocks = [], 
         </>
       )}
 
-      {/* ════════════════════════════════════ ANCHOR MODE ═══════════════════════ */}
       {mode === 'anchor' && (
         <div className="space-y-3 p-2.5 rounded-md bg-secondary/50 border border-border">
           <div className="grid grid-cols-2 gap-2">
@@ -407,7 +418,6 @@ export function TaskForm({ onSubmit, onClose, initialTask, existingBlocks = [], 
         </div>
       )}
 
-      {/* ════════════════════════════════════ FIXED MODE ═══════════════════════ */}
       {mode === 'fixed' && (
         <div className="space-y-2.5 p-2.5 rounded-md bg-secondary/50 border border-border">
           <Input
@@ -446,7 +456,7 @@ export function TaskForm({ onSubmit, onClose, initialTask, existingBlocks = [], 
 
       {/* Submit */}
       <Button type="submit" className="w-full font-mono text-xs tracking-widest h-8" size="sm" disabled={!!overlapWarning}>
-        <Plus className="w-3.5 h-3.5 mr-1.5" />
+        {initialTask?.id ? <Check className="w-3.5 h-3.5 mr-1.5" /> : <Plus className="w-3.5 h-3.5 mr-1.5" />}
         {initialTask?.id ? t('taskForm.update') : t('taskForm.addTask')}
       </Button>
     </form>

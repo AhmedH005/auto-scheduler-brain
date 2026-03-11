@@ -81,7 +81,19 @@
     "maxDeepHrs": "أقصى ساعات تركيز/يوم",
     "maxTotalHrs": "أقصى ساعات كلية/يوم",
     "minChunk": "أصغر كتلة (د)",
-    "resetDefaults": "إعادة الضبط"
+    "resetDefaults": "إعادة الضبط",
+    "calendarIntegrations": "تكاملات التقويم"
+  },
+  "calendarIntegrations": {
+    "title": "تكاملات التقويم",
+    "notConfigured": "معرّف عميل Google غير مُعيَّن",
+    "notConfiguredDesc": "أضف معرّف عميل OAuth الخاص بـ Google إلى متغيرات البيئة لتفعيل استيراد Google Calendar.",
+    "connecting": "جارٍ الاتصال بـ Google…",
+    "syncing": "جارٍ مزامنة التقاويم…",
+    "connectedAccounts": "الحسابات المربوطة",
+    "connectGoogle": "ربط Google Calendar",
+    "addAnotherGoogle": "إضافة حساب Google آخر",
+    "note": "تظهر الأحداث المستوردة كفترات مشغولة في جدولك. لن يضع المجدول مهاماً فوقها."
   },
   "auth": {
     "loginTitle": "مرحباً بعودتك",

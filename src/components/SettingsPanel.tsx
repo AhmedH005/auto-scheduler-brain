@@ -2,16 +2,17 @@ import { UserSettings, DEFAULT_SETTINGS } from '@/types/task';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Settings, X } from 'lucide-react';
+import { Settings, X, CalendarDays } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 interface SettingsPanelProps {
   settings: UserSettings;
   onUpdate: (updates: Partial<UserSettings>) => void;
   onClose: () => void;
+  onOpenIntegrations: () => void;
 }
 
-export function SettingsPanel({ settings, onUpdate, onClose }: SettingsPanelProps) {
+export function SettingsPanel({ settings, onUpdate, onClose, onOpenIntegrations }: SettingsPanelProps) {
   const { t } = useTranslation();
   return (
     <div className="flex flex-col gap-4 animate-slide-in">
@@ -111,6 +112,18 @@ export function SettingsPanel({ settings, onUpdate, onClose }: SettingsPanelProp
       >
         {t('settings.resetDefaults')}
       </Button>
+
+      <div className="border-t border-border pt-3">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-full font-mono text-xs gap-2 justify-start text-muted-foreground hover:text-foreground"
+          onClick={onOpenIntegrations}
+        >
+          <CalendarDays className="w-3.5 h-3.5" />
+          {t('settings.calendarIntegrations')}
+        </Button>
+      </div>
     </div>
   );
 }

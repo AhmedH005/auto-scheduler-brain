@@ -1,14 +1,10 @@
 import { Task, EnergyIntensity } from '@/types/task';
 
-// ─── Tunable weights ─────────────────────────────────────────────────────────
 export const URGENCY_WEIGHT    = 3;
 export const IMPORTANCE_WEIGHT = 2;
 export const ENERGY_WEIGHT     = 1.5;
 
-// ─── Energy bands ─────────────────────────────────────────────────────────────
-// morning  06–12 → deep
-// afternoon 12–17 → moderate
-// evening  17–24+ → light
+// morning 06–12 → deep, afternoon 12–17 → moderate, evening 17+ → light
 function slotEnergyLevel(hour: number): EnergyIntensity {
   if (hour >= 6 && hour < 12) return 'deep';
   if (hour >= 12 && hour < 17) return 'moderate';
@@ -36,12 +32,6 @@ function importanceScore(task: Task): number {
   return (task.priority - 1) / 4;
 }
 
-/**
- * score = urgency × URGENCY_WEIGHT + importance × IMPORTANCE_WEIGHT + energyMatch × ENERGY_WEIGHT
- *
- * @param slotHour  Optional hour (0–23) of the candidate slot for energy matching.
- *                  When omitted the energy term is excluded from the score.
- */
 export function calculateScore(task: Task, slotHour?: number): number {
   const urgency    = urgencyScore(task);
   const importance = importanceScore(task);
