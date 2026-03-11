@@ -4,6 +4,7 @@ import { Brain, ChevronDown } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
+import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 
 function FAQItem({ q, a }: { q: string; a: string }) {
   const [open, setOpen] = useState(false);
@@ -39,6 +40,7 @@ export default function FAQ() {
             <span>{t('app.name')}</span>
           </Link>
           <div className="flex items-center gap-4">
+            <ThemeSwitcher />
             <LanguageSwitcher />
             <Link to="/features" className="text-sm text-muted-foreground hover:text-foreground transition-colors">{t('nav.features')}</Link>
             <Link to="/faq" className="text-sm text-foreground font-medium">{t('nav.faq')}</Link>

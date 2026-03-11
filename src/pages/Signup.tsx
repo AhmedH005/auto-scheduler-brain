@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Brain } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
+import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 
 export default function Signup() {
   const { signUp } = useAuth();
@@ -50,7 +51,10 @@ export default function Signup() {
             <Brain className="h-5 w-5" />
             <span>{t('app.name')}</span>
           </Link>
-          <LanguageSwitcher />
+          <div className="flex items-center gap-1">
+            <ThemeSwitcher />
+            <LanguageSwitcher />
+          </div>
         </div>
       </nav>
 

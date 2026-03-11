@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Brain, ChevronRight, Zap, Lock, RefreshCw, CalendarDays, Clock, Target, Sliders, Layers } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
+import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 
 const FEATURE_ICONS = [
   <Brain className="h-6 w-6 text-primary" />,
@@ -30,6 +31,7 @@ export default function Features() {
             <span>{t('app.name')}</span>
           </Link>
           <div className="flex items-center gap-4">
+            <ThemeSwitcher />
             <LanguageSwitcher />
             <Link to="/features" className="text-sm text-foreground font-medium">{t('nav.features')}</Link>
             <Link to="/faq" className="text-sm text-muted-foreground hover:text-foreground transition-colors">{t('nav.faq')}</Link>

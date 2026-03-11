@@ -7,6 +7,7 @@ import { TaskForm } from '@/components/TaskForm';
 import { TaskList } from '@/components/TaskList';
 import { SettingsPanel } from '@/components/SettingsPanel';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
+import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 import { Task } from '@/types/task';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, Plus, Settings, Brain, ChevronLeft, ChevronRight, CalendarDays, Calendar, LayoutGrid } from 'lucide-react';
@@ -83,7 +84,10 @@ const Index = () => {
                 <Brain className="w-4 h-4 text-primary" />
                 <span className="font-mono text-xs font-bold tracking-wider text-primary">{t('app.name')}</span>
               </div>
-              <LanguageSwitcher />
+              <div className="flex items-center gap-1">
+                <ThemeSwitcher />
+                <LanguageSwitcher />
+              </div>
             </div>
           </div>
 

@@ -69,6 +69,66 @@
     --sidebar-border: 220 15% 16%;
     --sidebar-ring: 175 70% 45%;
   }
+
+  /* ─── Light theme ─────────────────────────────────────────────────── */
+  .light {
+    --background: 220 20% 97%;
+    --foreground: 220 20% 12%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 20% 12%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 20% 12%;
+
+    --primary: 175 65% 36%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 15% 92%;
+    --secondary-foreground: 220 20% 20%;
+
+    --muted: 220 15% 90%;
+    --muted-foreground: 215 15% 42%;
+
+    --accent: 175 40% 88%;
+    --accent-foreground: 175 65% 28%;
+
+    --destructive: 0 70% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 15% 84%;
+    --input: 220 15% 88%;
+    --ring: 175 65% 36%;
+
+    --energy-deep: 260 55% 50%;
+    --energy-moderate: 35 75% 48%;
+    --energy-light: 145 45% 40%;
+
+    --priority-5: 0 70% 52%;
+    --priority-4: 25 75% 50%;
+    --priority-3: 45 75% 48%;
+    --priority-2: 175 50% 40%;
+    --priority-1: 215 15% 52%;
+
+    --block-focus: 175 65% 36%;
+    --block-break: 220 15% 86%;
+    --block-locked: 45 75% 44%;
+
+    --surface-hover: 220 15% 90%;
+    --surface-active: 220 15% 87%;
+
+    --grid-line: 220 15% 87%;
+    --time-marker: 175 65% 36%;
+
+    --sidebar-background: 220 15% 95%;
+    --sidebar-foreground: 220 20% 18%;
+    --sidebar-primary: 175 65% 36%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 15% 90%;
+    --sidebar-accent-foreground: 220 20% 18%;
+    --sidebar-border: 220 15% 84%;
+    --sidebar-ring: 175 65% 36%;
+  }
 }
 
 @layer base {
