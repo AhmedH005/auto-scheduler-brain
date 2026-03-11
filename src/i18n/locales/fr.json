@@ -2,6 +2,7 @@
   "app": { "name": "AUTOSCHED" },
   "nav": {
     "features": "Fonctionnalités",
+    "roadmap": "Feuille de route",
     "faq": "FAQ",
     "login": "Connexion",
     "signup": "S'inscrire",
@@ -140,7 +141,20 @@
         "title": "Moteur conscient des échéances",
         "desc": "Les tâches sont évaluées par priorité et urgence de l'échéance, assurant que le bon travail arrive au bon moment."
       }
-    ]
+    ],
+    "vision": {
+      "badge": "La vision plus large",
+      "title": "Plus qu'un planificateur.",
+      "titleHighlight": "Un système pour toute votre vie.",
+      "subtitle": "AXIS est conçu en quatre moteurs interconnectés. Le Moteur Temporel est la première étape. Chaque phase approfondit la compréhension du système de qui vous êtes et de ce dont vous avez besoin.",
+      "exploreLink": "Explorer la feuille de route complète",
+      "engines": [
+        { "phase": "01", "name": "Moteur Temporel",  "status": "Disponible",       "desc": "Planification intelligente et priorisation automatique de vos tâches." },
+        { "phase": "02", "name": "Moteur Corporel",  "status": "Prochainement",     "desc": "Suivez nutrition, sommeil, mouvement et récupération pour comprendre votre capacité." },
+        { "phase": "03", "name": "Moteur Mental",    "status": "En conception",     "desc": "Journalisez, suivez l'humeur et les habitudes, et révélez les schémas derrière votre comportement." },
+        { "phase": "04", "name": "Life OS",          "status": "Vision",            "desc": "La couche d'intelligence qui connecte tous les moteurs et guide votre croissance." }
+      ]
+    }
   },
   "featuresPage": {
     "pageTitle": "Tout ce qu'il vous faut pour maîtriser votre planning",
@@ -233,5 +247,117 @@
         "a": "L'application est optimisée pour une utilisation sur ordinateur. Une version mobile pourrait être ajoutée à l'avenir."
       }
     ]
+  },
+  "roadmap": {
+    "badge": "La vision AXIS",
+    "heroTitle": "Quatre Moteurs.",
+    "heroTitleHighlight": "Une Vie.",
+    "heroSubtitle": "AXIS commence par le temps — et évolue vers un système complet pour comprendre et améliorer chaque dimension de votre vie.",
+    "heroDesc": "Chaque moteur est conçu pour fonctionner seul. Ensemble, ils forment quelque chose fondamentalement plus puissant : un système qui vous connaît réellement.",
+    "whatItDoes": "Ce qu'il fait",
+    "whyItMatters": "Pourquoi c'est important",
+    "engines": [
+      {
+        "phase": "01",
+        "status": "Disponible",
+        "name": "Moteur Temporel",
+        "mission": "Transformer l'intention en exécution — automatiquement.",
+        "description": "Le Moteur Temporel est le fondement d'AXIS. Il prend en charge la charge cognitive de la planification pour que vous puissiez vous concentrer entièrement sur le travail.",
+        "features": [
+          "Planification automatique intelligente selon la priorité et l'échéance",
+          "Blocs de temps adaptés à l'énergie selon vos rythmes naturels",
+          "Modes de planification flexible, ancré et fixe",
+          "Support des tâches récurrentes et des habitudes",
+          "Détection des conflits et replanification automatique"
+        ],
+        "why": "La plupart des gens échouent non par manque d'ambition, mais à cause du fossé entre décider et faire. Le Moteur Temporel comble ce fossé en convertissant vos intentions en un planning concret sans conflits — et en le reconstruisant à chaque changement.",
+        "bridge": "Votre planning n'est efficace qu'à hauteur de l'énergie qui le soutient. Le Moteur Corporel mesure cela."
+      },
+      {
+        "phase": "02",
+        "status": "Prochainement",
+        "name": "Moteur Corporel",
+        "mission": "Comprendre l'état physique derrière vos performances.",
+        "description": "Le Moteur Corporel intègre vos données de santé dans le système — non comme une application fitness, mais comme une lentille à travers laquelle AXIS comprend votre capacité et votre énergie chaque jour.",
+        "features": [
+          "Suivi de la nutrition et des repas",
+          "Journalisation des entraînements et mouvements",
+          "Suivi de la qualité et durée du sommeil",
+          "Surveillance de la récupération et des niveaux d'énergie",
+          "Analyse des tendances physiques au fil du temps"
+        ],
+        "why": "Votre état physique n'est pas une préoccupation séparée — c'est le fondement de tout le reste. Quand votre corps est épuisé, même le meilleur planning devient une fiction aspirationnelle. Quand il est fort, le même planning devient réalisable. AXIS doit faire la différence.",
+        "bridge": "La récupération physique façonne l'état émotionnel. Le Moteur Mental capture ce qui suit."
+      },
+      {
+        "phase": "03",
+        "status": "En conception",
+        "name": "Moteur Mental",
+        "mission": "Se connaître assez profondément pour s'améliorer.",
+        "description": "Le Moteur Mental est votre espace de clarté intérieure. Il vous aide à suivre ce que vous ressentez vraiment — pas seulement ce que vous faites — et révèle les schémas émotionnels et comportementaux qui influencent tout le reste.",
+        "features": [
+          "Invites de journal quotidien structuré",
+          "Suivi de l'humeur et de l'état émotionnel",
+          "Formation d'habitudes et suivi des séries",
+          "Reconnaissance des schémas comportementaux",
+          "Bilans de bien-être et de clarté mentale"
+        ],
+        "why": "Les plans échouent plus souvent pour des raisons émotionnelles que logistiques. Le Moteur Mental vous donne le langage pour comprendre pourquoi certaines semaines semblent être des progrès et d'autres, une dérive. Il transforme l'expérience subjective en données lisibles — le type qu'AXIS peut vraiment apprendre.",
+        "bridge": "Temps, Corps et Esprit forment ensemble une image complète. Life OS la lit — et vous aide à écrire un meilleur avenir."
+      }
+    ],
+    "lifeOS": {
+      "phase": "04",
+      "status": "Vision",
+      "name": "Life OS",
+      "mission": "Un guide intelligent qui connecte chaque dimension de votre vie.",
+      "description": "Life OS n'est pas un quatrième outil de suivi. C'est la couche d'intelligence qui surplombe les trois autres moteurs — lisant l'image complète qu'ils créent ensemble et l'utilisant pour vous aider à vous comprendre et à vous améliorer.",
+      "description2": "Seul, chaque moteur vous donne des données. Life OS vous donne du sens. Il trouve les connexions entre la façon dont vous gérez votre temps, comment votre corps se sent et comment votre esprit se porte — et transforme cela en quelque chose d'actionnable : une compréhension plus claire de où vous en êtes et un chemin réaliste vers où vous voulez aller.",
+      "whatItCan": "Ce que Life OS peut faire",
+      "capabilities": [
+        {
+          "title": "Reconnaissance de schémas entre les moteurs",
+          "desc": "Life OS lit à travers votre planning, votre état physique et votre vie intérieure pour trouver des schémas qu'aucun moteur seul ne pourrait voir."
+        },
+        {
+          "title": "Analyse de trajectoire",
+          "desc": "Basé sur vos habitudes et direction actuelles, Life OS vous montre vers où votre comportement est susceptible de mener — et si cette destination correspond à ce que vous voulez vraiment."
+        },
+        {
+          "title": "Correction de cap précoce",
+          "desc": "Il remarque quand vous dérivez avant que la dérive ne devienne un problème — et le nomme clairement pour que vous puissiez décider quoi faire."
+        },
+        {
+          "title": "Suggestions intelligentes",
+          "desc": "Life OS peut proposer des changements concrets à travers les moteurs : une meilleure fenêtre de sommeil, une charge de travail allégée pendant les périodes de récupération, une habitude de journalisation qui s'intègre à votre routine."
+        },
+        {
+          "title": "Guidance conversationnelle",
+          "desc": "Posez-lui des questions. « Pourquoi je continue à sauter mes entraînements ? » « Est-ce que je progresse vers mes objectifs ? » « À quoi ressemblerait une meilleure semaine ? » Il répond avec vos propres données, pas des conseils génériques."
+        }
+      ],
+      "rightKind": "Le bon type d'intelligence",
+      "pillars": [
+        {
+          "title": "Un miroir intelligent",
+          "desc": "Life OS reflète vos schémas clairement et honnêtement — non pour juger, mais pour vous aider à voir ce qui se passe réellement."
+        },
+        {
+          "title": "Un guide attentionné",
+          "desc": "Il offre des suggestions, pas des mandats. Vous restez maître de chaque décision. Le système propose ; vous choisissez."
+        },
+        {
+          "title": "Construit autour de vous",
+          "desc": "Chaque insight vient de vos propres données — pas de moyennes génériques ou de références de population. Plus vous l'utilisez, plus il comprend précisément vos schémas spécifiques."
+        }
+      ]
+    },
+    "cta": {
+      "badge": "La phase 01 est disponible aujourd'hui",
+      "title": "Commencez à construire votre fondation.",
+      "subtitle": "Le Moteur Temporel est disponible maintenant. Tout commence ici — avec votre planning, vos priorités et votre temps.",
+      "getStarted": "Commencer gratuitement",
+      "seeFeatures": "Voir toutes les fonctionnalités"
+    }
   }
 }

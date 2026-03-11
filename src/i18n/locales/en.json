@@ -2,6 +2,7 @@
   "app": { "name": "AUTOSCHED" },
   "nav": {
     "features": "Features",
+    "roadmap": "Roadmap",
     "faq": "FAQ",
     "login": "Log in",
     "signup": "Sign up",
@@ -140,7 +141,20 @@
         "title": "Deadline-aware engine",
         "desc": "Tasks are scored by priority and deadline urgency, ensuring the right work lands at the right time."
       }
-    ]
+    ],
+    "vision": {
+      "badge": "The bigger picture",
+      "title": "More than a scheduler.",
+      "titleHighlight": "A system for your entire life.",
+      "subtitle": "AXIS is being built in four interconnected engines. The Time Engine is the first step. Each phase deepens the system's understanding of who you are and what you need.",
+      "exploreLink": "Explore the full roadmap",
+      "engines": [
+        { "phase": "01", "name": "Time Engine",  "status": "Live Now",    "desc": "Intelligent scheduling and automatic prioritization of your tasks." },
+        { "phase": "02", "name": "Body Engine",  "status": "Coming Next", "desc": "Track nutrition, sleep, movement, and recovery to understand your capacity." },
+        { "phase": "03", "name": "Mind Engine",  "status": "In Design",   "desc": "Journal, track mood and habits, and surface the patterns behind your behavior." },
+        { "phase": "04", "name": "Life OS",      "status": "Vision",      "desc": "The intelligence layer that connects all engines and guides your growth." }
+      ]
+    }
   },
   "featuresPage": {
     "pageTitle": "Everything you need to own your schedule",
@@ -233,5 +247,117 @@
         "a": "The app is optimized for desktop use. A mobile-friendly version may be added in the future."
       }
     ]
+  },
+  "roadmap": {
+    "badge": "The AXIS Vision",
+    "heroTitle": "Four Engines.",
+    "heroTitleHighlight": "One Life.",
+    "heroSubtitle": "AXIS begins with time — and grows into a complete system for understanding and improving every dimension of how you live.",
+    "heroDesc": "Each engine is designed to work alone. Together, they form something fundamentally more powerful: a system that actually knows you.",
+    "whatItDoes": "What it does",
+    "whyItMatters": "Why it matters",
+    "engines": [
+      {
+        "phase": "01",
+        "status": "Live Now",
+        "name": "Time Engine",
+        "mission": "Turn intention into execution — automatically.",
+        "description": "The Time Engine is the foundation of AXIS. It handles the cognitive overhead of scheduling so you can focus entirely on doing the work.",
+        "features": [
+          "Intelligent auto-scheduling based on priority and deadline",
+          "Energy-aware time blocks matched to your natural rhythms",
+          "Flexible, anchor, and fixed scheduling modes",
+          "Recurring task and habit support",
+          "Conflict detection and automatic rescheduling"
+        ],
+        "why": "Most people fail not from lack of ambition, but from the gap between deciding and doing. The Time Engine closes that gap by converting your intentions into a concrete, conflict-free schedule — and rebuilding it whenever life changes.",
+        "bridge": "Your schedule is only as effective as the energy behind it. Body Engine measures that."
+      },
+      {
+        "phase": "02",
+        "status": "Coming Next",
+        "name": "Body Engine",
+        "mission": "Understand the physical state behind your performance.",
+        "description": "The Body Engine brings your health data into the system — not as a fitness app, but as a lens through which AXIS understands your capacity and energy on any given day.",
+        "features": [
+          "Nutrition and meal tracking",
+          "Workout and movement logging",
+          "Sleep quality and duration tracking",
+          "Recovery and energy level monitoring",
+          "Physical trend analysis over time"
+        ],
+        "why": "Your physical state is not a separate concern — it is the foundation of everything else. When your body is depleted, even the best schedule becomes aspirational fiction. When it is strong, the same schedule becomes achievable. AXIS needs to know the difference.",
+        "bridge": "Physical recovery shapes emotional state. Mind Engine captures what happens next."
+      },
+      {
+        "phase": "03",
+        "status": "In Design",
+        "name": "Mind Engine",
+        "mission": "Know yourself deeply enough to improve.",
+        "description": "The Mind Engine is your space for inner clarity. It helps you track how you actually feel — not just what you do — and surfaces the emotional and behavioral patterns that shape everything else.",
+        "features": [
+          "Structured daily journaling prompts",
+          "Mood and emotional state tracking",
+          "Habit formation and streak tracking",
+          "Behavioral pattern recognition",
+          "Wellbeing and mental clarity check-ins"
+        ],
+        "why": "Plans fail for emotional reasons more often than logistical ones. The Mind Engine gives you the language to understand why some weeks feel like progress and others like drift. It turns subjective experience into legible data — the kind AXIS can actually learn from.",
+        "bridge": "Time, Body, and Mind together form a complete picture. Life OS reads it — and helps you write a better future."
+      }
+    ],
+    "lifeOS": {
+      "phase": "04",
+      "status": "Vision",
+      "name": "Life OS",
+      "mission": "An intelligent guide that connects every dimension of your life.",
+      "description": "Life OS is not a fourth tracker. It is the intelligence layer that sits above the other three engines — reading the full picture they create together, and using it to help you understand yourself and improve.",
+      "description2": "On its own, each engine gives you data. Life OS gives you meaning. It finds the connections between how you spend your time, how your body feels, and how your mind is doing — and turns that into something actionable: a clearer understanding of where you are, and a realistic path to where you want to be.",
+      "whatItCan": "What Life OS can do",
+      "capabilities": [
+        {
+          "title": "Pattern recognition across engines",
+          "desc": "Life OS reads across your schedule, your physical state, and your inner life to find patterns that no single engine could see alone."
+        },
+        {
+          "title": "Trajectory analysis",
+          "desc": "Based on your current habits and direction, Life OS shows you where your behavior is likely to lead — and whether that destination matches what you actually want."
+        },
+        {
+          "title": "Early course correction",
+          "desc": "It notices when you're drifting before the drift becomes a problem — and names it clearly so you can decide what to do about it."
+        },
+        {
+          "title": "Intelligent suggestions",
+          "desc": "Life OS can propose concrete changes across the engines: a better sleep window, a lighter workload during recovery periods, a journaling habit that fits your existing routine."
+        },
+        {
+          "title": "Conversational guidance",
+          "desc": "Ask it questions. \"Why do I keep skipping workouts?\" \"Am I making progress toward my goals?\" \"What would a better week look like?\" It answers with your own data, not generic advice."
+        }
+      ],
+      "rightKind": "The right kind of intelligence",
+      "pillars": [
+        {
+          "title": "An intelligent mirror",
+          "desc": "Life OS reflects your patterns back to you clearly and honestly — not to judge, but to help you see what's actually happening."
+        },
+        {
+          "title": "A thoughtful guide",
+          "desc": "It offers suggestions, not mandates. You stay in control of every decision. The system proposes; you choose."
+        },
+        {
+          "title": "Built around you",
+          "desc": "Every insight comes from your own data — not generic averages or population benchmarks. The more you use it, the more precisely it understands your specific patterns."
+        }
+      ]
+    },
+    "cta": {
+      "badge": "Phase 01 is live today",
+      "title": "Start building your foundation.",
+      "subtitle": "The Time Engine is available now. Everything begins here — with your schedule, your priorities, and your time.",
+      "getStarted": "Get started free",
+      "seeFeatures": "See all features"
+    }
   }
 }
