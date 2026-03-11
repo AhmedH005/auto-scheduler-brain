@@ -1,5 +1,7 @@
 {
-  "app": { "name": "AXIS" },
+  "app": {
+    "name": "AXIS"
+  },
   "nav": {
     "features": "Features",
     "roadmap": "Roadmap",
@@ -25,7 +27,14 @@
     },
     "duration": "Duration",
     "priority": "Priority",
-    "priorityLabels": ["", "Low", "Below Avg", "Medium", "High", "Critical"],
+    "priorityLabels": [
+      "",
+      "Low",
+      "Below Avg",
+      "Medium",
+      "High",
+      "Critical"
+    ],
     "deadline": "Deadline",
     "optional": "(optional)",
     "energy": "Energy",
@@ -69,7 +78,15 @@
     "week": "Week",
     "month": "Month",
     "moreItems": "+{{count}} more",
-    "dayHeaders": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    "dayHeaders": [
+      "Mon",
+      "Tue",
+      "Wed",
+      "Thu",
+      "Fri",
+      "Sat",
+      "Sun"
+    ]
   },
   "settings": {
     "title": "Settings",
@@ -161,10 +178,30 @@
       "subtitle": "AXIS is being built in four interconnected engines. The Time Engine is the first step. Each phase deepens the system's understanding of who you are and what you need.",
       "exploreLink": "Explore the full roadmap",
       "engines": [
-        { "phase": "01", "name": "Time Engine",  "status": "Live Now",    "desc": "Intelligent scheduling and automatic prioritization of your tasks." },
-        { "phase": "02", "name": "Body Engine",  "status": "Coming Next", "desc": "Track nutrition, sleep, movement, and recovery to understand your capacity." },
-        { "phase": "03", "name": "Mind Engine",  "status": "In Design",   "desc": "Journal, track mood and habits, and surface the patterns behind your behavior." },
-        { "phase": "04", "name": "Life OS",      "status": "Vision",      "desc": "The intelligence layer that connects all engines and guides your growth." }
+        {
+          "phase": "01",
+          "name": "Time Engine",
+          "status": "Live Now",
+          "desc": "Intelligent scheduling and automatic prioritization of your tasks."
+        },
+        {
+          "phase": "02",
+          "name": "Body Engine",
+          "status": "Coming Next",
+          "desc": "Track nutrition, sleep, movement, and recovery to understand your capacity."
+        },
+        {
+          "phase": "03",
+          "name": "Mind Engine",
+          "status": "In Design",
+          "desc": "Journal, track mood and habits, and surface the patterns behind your behavior."
+        },
+        {
+          "phase": "04",
+          "name": "Life OS",
+          "status": "Vision",
+          "desc": "The intelligence layer that connects all engines and guides your growth."
+        }
       ]
     }
   },

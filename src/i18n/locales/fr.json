@@ -1,5 +1,7 @@
 {
-  "app": { "name": "AXIS" },
+  "app": {
+    "name": "AXIS"
+  },
   "nav": {
     "features": "Fonctionnalités",
     "roadmap": "Feuille de route",
@@ -25,7 +27,14 @@
     },
     "duration": "Durée",
     "priority": "Priorité",
-    "priorityLabels": ["", "Faible", "Sous la moy.", "Moyen", "Élevé", "Critique"],
+    "priorityLabels": [
+      "",
+      "Faible",
+      "Sous la moy.",
+      "Moyen",
+      "Élevé",
+      "Critique"
+    ],
     "deadline": "Échéance",
     "optional": "(optionnel)",
     "energy": "Énergie",
@@ -69,7 +78,15 @@
     "week": "Semaine",
     "month": "Mois",
     "moreItems": "+{{count}} de plus",
-    "dayHeaders": ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"]
+    "dayHeaders": [
+      "Lun",
+      "Mar",
+      "Mer",
+      "Jeu",
+      "Ven",
+      "Sam",
+      "Dim"
+    ]
   },
   "settings": {
     "title": "Paramètres",
@@ -161,10 +178,30 @@
       "subtitle": "AXIS est conçu en quatre moteurs interconnectés. Le Moteur Temporel est la première étape. Chaque phase approfondit la compréhension du système de qui vous êtes et de ce dont vous avez besoin.",
       "exploreLink": "Explorer la feuille de route complète",
       "engines": [
-        { "phase": "01", "name": "Moteur Temporel",  "status": "Disponible",       "desc": "Planification intelligente et priorisation automatique de vos tâches." },
-        { "phase": "02", "name": "Moteur Corporel",  "status": "Prochainement",     "desc": "Suivez nutrition, sommeil, mouvement et récupération pour comprendre votre capacité." },
-        { "phase": "03", "name": "Moteur Mental",    "status": "En conception",     "desc": "Journalisez, suivez l'humeur et les habitudes, et révélez les schémas derrière votre comportement." },
-        { "phase": "04", "name": "Life OS",          "status": "Vision",            "desc": "La couche d'intelligence qui connecte tous les moteurs et guide votre croissance." }
+        {
+          "phase": "01",
+          "name": "Moteur Temporel",
+          "status": "Disponible",
+          "desc": "Planification intelligente et priorisation automatique de vos tâches."
+        },
+        {
+          "phase": "02",
+          "name": "Moteur Corporel",
+          "status": "Prochainement",
+          "desc": "Suivez nutrition, sommeil, mouvement et récupération pour comprendre votre capacité."
+        },
+        {
+          "phase": "03",
+          "name": "Moteur Mental",
+          "status": "En conception",
+          "desc": "Journalisez, suivez l'humeur et les habitudes, et révélez les schémas derrière votre comportement."
+        },
+        {
+          "phase": "04",
+          "name": "Life OS",
+          "status": "Vision",
+          "desc": "La couche d'intelligence qui connecte tous les moteurs et guide votre croissance."
+        }
       ]
     }
   },
