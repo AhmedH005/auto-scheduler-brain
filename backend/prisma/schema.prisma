@@ -1,0 +1,160 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String   // bcrypt hash
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  refreshTokens      RefreshToken[]
+  tasks              Task[]
+  scheduledBlocks    ScheduledBlock[]
+  recurringAnchors   RecurringAnchorRule[]
+  settings           UserSettings?
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String   @map("user_id")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+enum EnergyIntensity {
+  deep
+  moderate
+  light
+}
+
+enum SchedulingMode {
+  flexible
+  anchor
+  fixed
+}
+
+enum ExecutionStyle {
+  single
+  split
+  auto_chunk
+}
+
+enum RecurrencePattern {
+  daily
+  weekdays
+  weekly
+  custom
+}
+
+enum TaskStatus {
+  active
+  completed
+  paused
+}
+
+model Task {
+  id              String          @id @default(uuid())
+  userId          String          @map("user_id")
+  title           String
+  totalDuration   Int             @map("total_duration") // minutes
+  priority        Int             @default(3) // 1-5
+  deadline        DateTime?
+  energyIntensity EnergyIntensity @default(moderate) @map("energy_intensity")
+  schedulingMode  SchedulingMode  @default(flexible) @map("scheduling_mode")
+  executionStyle  ExecutionStyle  @default(single) @map("execution_style")
+
+  // Anchor mode: preferred time window
+  windowStart String? @map("window_start") // HH:MM
+  windowEnd   String? @map("window_end")   // HH:MM
+
+  // Fixed mode: exact datetime
+  startDatetime DateTime? @map("start_datetime")
+  endDatetime   DateTime? @map("end_datetime")
+
+  // Recurrence
+  isRecurring        Boolean            @default(false) @map("is_recurring")
+  recurrencePattern  RecurrencePattern? @map("recurrence_pattern")
+  recurrenceInterval Int                @default(1) @map("recurrence_interval")
+  recurrenceEnd      DateTime?          @map("recurrence_end")
+
+  status    TaskStatus @default(active)
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scheduledBlocks ScheduledBlock[]
+
+  @@map("tasks")
+}
+
+enum BlockType {
+  focus
+  break_block @map("break")
+}
+
+model ScheduledBlock {
+  id           String    @id @default(uuid())
+  userId       String    @map("user_id")
+  taskId       String    @map("task_id")
+  startTime    DateTime  @map("start_time")
+  endTime      DateTime  @map("end_time")
+  locked       Boolean   @default(false)
+  blockType    BlockType @default(focus) @map("block_type")
+  instanceDate String    @map("instance_date") // yyyy-MM-dd
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@map("scheduled_blocks")
+}
+
+model RecurringAnchorRule {
+  id                 String             @id @default(uuid())
+  userId             String             @map("user_id")
+  title              String
+  windowStart        String             @map("window_start") // HH:MM
+  windowEnd          String             @map("window_end")   // HH:MM
+  recurrencePattern  RecurrencePattern  @map("recurrence_pattern")
+  recurrenceInterval Int                @default(1) @map("recurrence_interval")
+  startDate          DateTime           @map("start_date")
+  endDate            DateTime?          @map("end_date")
+  priority           Int                @default(3)
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("recurring_anchor_rules")
+}
+
+model UserSettings {
+  id                 String @id @default(uuid())
+  userId             String @unique @map("user_id")
+  workingHoursStart  String @default("08:00") @map("working_hours_start")
+  workingHoursEnd    String @default("18:00") @map("working_hours_end")
+  deepWindowStart    String @default("08:00") @map("deep_window_start")
+  deepWindowEnd      String @default("12:00") @map("deep_window_end")
+  bufferTime         Int    @default(10) @map("buffer_time")
+  maxDeepHoursPerDay Float  @default(4) @map("max_deep_hours_per_day")
+  maxTotalHoursPerDay Float @default(8) @map("max_total_hours_per_day")
+  minChunkSize       Int    @default(25) @map("min_chunk_size")
+  maxChunkSize       Int    @default(120) @map("max_chunk_size")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_settings")
+}

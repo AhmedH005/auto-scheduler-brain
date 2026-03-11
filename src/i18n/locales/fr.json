@@ -1,0 +1,237 @@
+{
+  "app": { "name": "AUTOSCHED" },
+  "nav": {
+    "features": "Fonctionnalités",
+    "faq": "FAQ",
+    "login": "Connexion",
+    "signup": "S'inscrire",
+    "openApp": "Ouvrir l'app"
+  },
+  "sidebar": {
+    "tasks": "Tâches",
+    "rebuildSchedule": "Reconstruire le planning"
+  },
+  "taskForm": {
+    "newTask": "+ Nouvelle tâche",
+    "editTask": "✎ Modifier la tâche",
+    "namePlaceholder": "Nom de la tâche…",
+    "descriptionPlaceholder": "Description (optionnel)…",
+    "color": "Couleur",
+    "mode": {
+      "flexible": "Flexible",
+      "anchor": "Ancré",
+      "fixed": "Fixe"
+    },
+    "duration": "Durée",
+    "priority": "Priorité",
+    "priorityLabels": ["", "Faible", "Sous la moy.", "Moyen", "Élevé", "Critique"],
+    "deadline": "Échéance",
+    "optional": "(optionnel)",
+    "energy": "Énergie",
+    "execution": "Exécution",
+    "recurring": "Récurrent",
+    "from": "De",
+    "to": "À",
+    "untilDate": "Jusqu'au",
+    "until": "Jusqu'au",
+    "every": "Tous les",
+    "days": "jours",
+    "energyLevels": {
+      "deep": "Profond",
+      "moderate": "Modéré",
+      "light": "Léger"
+    },
+    "executionStyles": {
+      "single": "Unique",
+      "split": "Divisé",
+      "auto": "Auto"
+    },
+    "recurrencePatterns": {
+      "daily": "Quotidien",
+      "weekdays": "Jours ouvrés",
+      "weekly": "Hebdomadaire",
+      "custom": "Personnalisé"
+    },
+    "addTask": "Ajouter la tâche",
+    "update": "Mettre à jour"
+  },
+  "taskList": {
+    "noTasks": "Aucune tâche",
+    "clickToAdd": "Cliquez + pour ajouter une tâche"
+  },
+  "calendar": {
+    "today": "Aujourd'hui",
+    "lock": "Verrouiller",
+    "unlock": "Déverrouiller",
+    "delete": "Supprimer",
+    "day": "Jour",
+    "week": "Semaine",
+    "month": "Mois",
+    "moreItems": "+{{count}} de plus",
+    "dayHeaders": ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"]
+  },
+  "settings": {
+    "title": "Paramètres",
+    "workStart": "Début travail",
+    "workEnd": "Fin travail",
+    "deepStart": "Début focus",
+    "deepEnd": "Fin focus",
+    "bufferMin": "Tampon (min)",
+    "maxDeepHrs": "Max h. focus/j",
+    "maxTotalHrs": "Max h. total/j",
+    "minChunk": "Bloc min (min)",
+    "resetDefaults": "Réinitialiser"
+  },
+  "auth": {
+    "loginTitle": "Bon retour",
+    "loginSubtitle": "Connectez-vous à votre compte AutoSched",
+    "signupTitle": "Créer votre compte",
+    "signupSubtitle": "Commencez à planifier mieux, gratuitement",
+    "email": "E-mail",
+    "password": "Mot de passe",
+    "displayName": "Nom",
+    "emailPlaceholder": "vous@exemple.com",
+    "passwordPlaceholder": "Min. 8 caractères",
+    "namePlaceholder": "Votre nom",
+    "loginButton": "Se connecter",
+    "loggingIn": "Connexion…",
+    "createAccount": "Créer un compte",
+    "creatingAccount": "Création du compte…",
+    "noAccount": "Pas encore de compte ?",
+    "haveAccount": "Déjà un compte ?",
+    "signupLink": "S'inscrire",
+    "loginLink": "Se connecter",
+    "accountCreated": "Compte créé !",
+    "redirecting": "Redirection vers votre planificateur…",
+    "termsNotice": "En vous inscrivant, vous acceptez nos conditions d'utilisation.",
+    "passwordTooShort": "Le mot de passe doit contenir au moins 8 caractères."
+  },
+  "landing": {
+    "badge": "Moteur de planification IA",
+    "heroTitle": "Votre agenda,",
+    "heroTitleHighlight": "enfin à votre service",
+    "heroSubtitle": "AutoSched planifie intelligemment vos tâches selon votre énergie, vos échéances et vos heures de travail — plus jamais à lutter contre votre calendrier.",
+    "getStarted": "Commencer gratuitement",
+    "ctaTitle": "Prêt à arrêter de lutter contre votre planning ?",
+    "ctaSubtitle": "Inscrivez-vous gratuitement et laissez le moteur construire votre semaine.",
+    "openScheduler": "Ouvrir le planificateur",
+    "features": [
+      {
+        "title": "Planification selon la cognition",
+        "desc": "Les tâches profondes, modérées et légères sont placées selon vos fenêtres d'énergie — pas seulement votre disponibilité."
+      },
+      {
+        "title": "Trois modes de planification",
+        "desc": "Les modes flexible, ancré et fixe vous donnent un contrôle précis sur comment et quand les tâches sont placées."
+      },
+      {
+        "title": "Tâches récurrentes",
+        "desc": "Quotidien, jours ouvrés, hebdomadaire ou intervalles personnalisés. Le moteur gère l'expansion et la détection des conflits automatiquement."
+      },
+      {
+        "title": "Verrouiller et protéger les blocs",
+        "desc": "Verrouillez n'importe quel bloc pour le maintenir en place entre les reconstructions. Le moteur travaille autour de vos engagements."
+      },
+      {
+        "title": "Vues jour, semaine et mois",
+        "desc": "Faites glisser, redimensionnez et naviguez dans votre planning avec une interface de calendrier familière conçue pour les utilisateurs avancés."
+      },
+      {
+        "title": "Moteur conscient des échéances",
+        "desc": "Les tâches sont évaluées par priorité et urgence de l'échéance, assurant que le bon travail arrive au bon moment."
+      }
+    ]
+  },
+  "featuresPage": {
+    "pageTitle": "Tout ce qu'il vous faut pour maîtriser votre planning",
+    "pageSubtitle": "AutoSched est conçu pour les personnes sérieuses dans leur travail — et qui ont besoin d'outils à la hauteur.",
+    "tryFree": "Essayer gratuitement",
+    "getStarted": "Commencer",
+    "items": [
+      {
+        "title": "Moteur de planification cognitif",
+        "desc": "Le moteur comprend votre énergie. Les tâches de travail profond atterrissent dans votre fenêtre de haute concentration. Les tâches modérées remplissent l'après-midi. Les tâches administratives légères vont là où elles s'adaptent. Votre calendrier commence à correspondre à la façon dont vous pensez et travaillez réellement."
+      },
+      {
+        "title": "Trois modes de planification",
+        "desc": "Le mode flexible laisse le moteur décider du placement en fonction des échéances et de l'énergie. Le mode ancré fixe une tâche dans une fenêtre de temps préférée. Le mode fixe verrouille une tâche à une date et heure exactes. Utilisez le bon mode pour chaque tâche."
+      },
+      {
+        "title": "Découpage intelligent et styles d'exécution",
+        "desc": "Les longues tâches peuvent être divisées automatiquement en plusieurs sessions avec le mode auto_chunk. Définissez un grand bloc unique avec le mode single, ou définissez manuellement une division multi-sessions. Le moteur respecte les tailles de blocs min et max de vos paramètres."
+      },
+      {
+        "title": "Tâches récurrentes",
+        "desc": "Définissez des tâches récurrentes quotidiennes, les jours ouvrés, hebdomadaires ou à intervalle personnalisé. Le moteur les développe sur votre fenêtre de planification et gère automatiquement les conflits sans dupliquer les blocs."
+      },
+      {
+        "title": "Verrouiller et reconstruire",
+        "desc": "Verrouillez n'importe quel bloc pour le figer en place. Quand vous cliquez sur Reconstruire le planning, le moteur replanifie tout le reste autour de vos engagements verrouillés. Rien n'est perturbé si vous l'avez dit."
+      },
+      {
+        "title": "Vues jour, semaine et mois",
+        "desc": "Passez entre une vue journalière détaillée, une grille hebdomadaire complète avec accrochage à 15 minutes et un aperçu mensuel. Faites glisser les blocs pour les déplacer. Redimensionnez depuis le bord inférieur. Double-cliquez sur n'importe quel créneau pour ajouter rapidement une tâche."
+      },
+      {
+        "title": "Scoring par échéance et priorité",
+        "desc": "Le moteur évalue chaque tâche par niveau de priorité (1–5) et urgence de l'échéance, plaçant les tâches à enjeux élevés plus tôt et donnant de la marge aux tâches avec des échéances lointaines."
+      },
+      {
+        "title": "Heures de travail et limites configurables",
+        "desc": "Définissez vos heures de travail, votre fenêtre de travail profond, le temps tampon entre les tâches et les limites journalières. Le moteur ne planifie jamais en dehors de vos limites."
+      },
+      {
+        "title": "Synchronisation cloud avec Supabase",
+        "desc": "Vos tâches, blocs et paramètres sont stockés dans votre propre compte Supabase avec sécurité au niveau des lignes. Tout est limité à votre utilisateur — personne d'autre ne peut lire vos données."
+      }
+    ]
+  },
+  "faqPage": {
+    "pageTitle": "Questions fréquemment posées",
+    "pageSubtitle": "Tout ce que vous devez savoir sur AutoSched.",
+    "stillQuestions": "Vous avez encore des questions ?",
+    "tryButton": "Essayer AutoSched gratuitement",
+    "items": [
+      {
+        "q": "Comment fonctionne le moteur de planification ?",
+        "a": "Le moteur d'AutoSched prend toutes vos tâches actives, respecte vos blocs verrouillés et construit un planning qui s'inscrit dans vos heures de travail et vos fenêtres d'énergie. Les tâches sont évaluées par priorité et urgence de l'échéance, puis placées dans les meilleurs créneaux disponibles selon leur besoin en énergie."
+      },
+      {
+        "q": "Quelle est la différence entre les modes Flexible, Ancré et Fixe ?",
+        "a": "Flexible laisse le moteur choisir quand placer la tâche. Ancré fixe la tâche dans une fenêtre de temps préférée (ex. chaque matin 9h–11h) avec une certaine flexibilité. Fixe verrouille la tâche à une date et heure exactes — le moteur ne la déplacera pas."
+      },
+      {
+        "q": "Que se passe-t-il quand je clique sur « Reconstruire le planning » ?",
+        "a": "Le moteur recalcule l'intégralité de votre planning. Il garde en place tous les blocs que vous avez verrouillés et replanifie tout le reste depuis le début, en fonction de vos tâches et paramètres actuels."
+      },
+      {
+        "q": "Puis-je utiliser AutoSched sans compte ?",
+        "a": "L'application nécessite un compte pour stocker vos données dans le cloud. Sans compte, les données ne sont conservées que dans le localStorage du navigateur et seront perdues si vous effacez les données du navigateur ou changez d'appareil."
+      },
+      {
+        "q": "Mes données sont-elles privées ?",
+        "a": "Oui. Vos données sont stockées dans une base de données Supabase avec la sécurité au niveau des lignes activée. Seul votre compte peut lire ou écrire vos tâches, blocs et paramètres — aucun autre utilisateur ne peut y accéder."
+      },
+      {
+        "q": "Puis-je verrouiller un bloc pour qu'il ne soit pas déplacé lors des reconstructions ?",
+        "a": "Oui. Cliquez sur l'icône de verrouillage de n'importe quel bloc pour le figer. Lors de la reconstruction, le moteur travaille autour de tous les blocs verrouillés."
+      },
+      {
+        "q": "Comment fonctionne le support des tâches récurrentes ?",
+        "a": "Quand vous créez une tâche récurrente, le moteur la développe sur votre fenêtre de planification selon le modèle de récurrence (quotidien, jours ouvrés, hebdomadaire ou intervalle personnalisé). Chaque instance est traitée comme une unité planifiable séparée."
+      },
+      {
+        "q": "Qu'est-ce que les « niveaux d'énergie » et comment affectent-ils la planification ?",
+        "a": "Les tâches profondes nécessitent une haute concentration et sont placées dans votre fenêtre de travail profond désignée (ex. 8h–12h). Les tâches modérées vont dans les périodes d'énergie moyenne. Les tâches légères (admin, révisions) sont placées dans les créneaux à faible énergie. Vous pouvez configurer votre fenêtre de travail profond dans les Paramètres."
+      },
+      {
+        "q": "Puis-je faire glisser et redimensionner les tâches sur le calendrier ?",
+        "a": "Oui. Dans les vues semaine et jour, vous pouvez faire glisser n'importe quel bloc pour le déplacer et faire glisser depuis le bord inférieur pour le redimensionner. Les blocs déplacés ou redimensionnés sont automatiquement verrouillés."
+      },
+      {
+        "q": "Puis-je utiliser AutoSched sur mobile ?",
+        "a": "L'application est optimisée pour une utilisation sur ordinateur. Une version mobile pourrait être ajoutée à l'avenir."
+      }
+    ]
+  }
+}

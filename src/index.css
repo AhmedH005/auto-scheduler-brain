@@ -1,0 +1,107 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 220 20% 7%;
+    --foreground: 210 20% 90%;
+
+    --card: 220 18% 10%;
+    --card-foreground: 210 20% 90%;
+
+    --popover: 220 18% 12%;
+    --popover-foreground: 210 20% 90%;
+
+    --primary: 175 70% 45%;
+    --primary-foreground: 220 20% 7%;
+
+    --secondary: 220 15% 15%;
+    --secondary-foreground: 210 20% 80%;
+
+    --muted: 220 15% 13%;
+    --muted-foreground: 215 15% 50%;
+
+    --accent: 175 50% 25%;
+    --accent-foreground: 175 70% 80%;
+
+    --destructive: 0 70% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 15% 18%;
+    --input: 220 15% 16%;
+    --ring: 175 70% 45%;
+
+    --radius: 0.375rem;
+
+    /* Custom tokens */
+    --energy-deep: 260 60% 55%;
+    --energy-moderate: 35 80% 55%;
+    --energy-light: 145 50% 45%;
+
+    --priority-5: 0 70% 55%;
+    --priority-4: 25 80% 55%;
+    --priority-3: 45 80% 55%;
+    --priority-2: 175 50% 45%;
+    --priority-1: 215 15% 45%;
+
+    --block-focus: 175 70% 45%;
+    --block-break: 220 15% 20%;
+    --block-locked: 45 80% 50%;
+
+    --surface-hover: 220 15% 16%;
+    --surface-active: 220 15% 18%;
+
+    --grid-line: 220 15% 14%;
+    --time-marker: 175 70% 45%;
+
+    --font-mono: 'JetBrains Mono', monospace;
+    --font-sans: 'Inter', system-ui, sans-serif;
+
+    --sidebar-background: 220 18% 8%;
+    --sidebar-foreground: 210 20% 85%;
+    --sidebar-primary: 175 70% 45%;
+    --sidebar-primary-foreground: 220 20% 7%;
+    --sidebar-accent: 220 15% 14%;
+    --sidebar-accent-foreground: 210 20% 85%;
+    --sidebar-border: 220 15% 16%;
+    --sidebar-ring: 175 70% 45%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: hsl(var(--background));
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground));
+  }
+}
+
+@layer utilities {
+  .font-mono {
+    font-family: var(--font-mono);
+  }
+  .font-sans {
+    font-family: var(--font-sans);
+  }
+}

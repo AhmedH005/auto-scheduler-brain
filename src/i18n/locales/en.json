@@ -1,0 +1,237 @@
+{
+  "app": { "name": "AUTOSCHED" },
+  "nav": {
+    "features": "Features",
+    "faq": "FAQ",
+    "login": "Log in",
+    "signup": "Sign up",
+    "openApp": "Open App"
+  },
+  "sidebar": {
+    "tasks": "Tasks",
+    "rebuildSchedule": "Rebuild Schedule"
+  },
+  "taskForm": {
+    "newTask": "+ New Task",
+    "editTask": "✎ Edit Task",
+    "namePlaceholder": "Task name…",
+    "descriptionPlaceholder": "Description (optional)…",
+    "color": "Color",
+    "mode": {
+      "flexible": "Flexible",
+      "anchor": "Anchor",
+      "fixed": "Fixed"
+    },
+    "duration": "Duration",
+    "priority": "Priority",
+    "priorityLabels": ["", "Low", "Below Avg", "Medium", "High", "Critical"],
+    "deadline": "Deadline",
+    "optional": "(optional)",
+    "energy": "Energy",
+    "execution": "Execution",
+    "recurring": "Recurring",
+    "from": "From",
+    "to": "To",
+    "untilDate": "Until date",
+    "until": "Until",
+    "every": "Every",
+    "days": "days",
+    "energyLevels": {
+      "deep": "Deep",
+      "moderate": "Moderate",
+      "light": "Light"
+    },
+    "executionStyles": {
+      "single": "Single",
+      "split": "Split",
+      "auto": "Auto"
+    },
+    "recurrencePatterns": {
+      "daily": "Daily",
+      "weekdays": "Weekdays",
+      "weekly": "Weekly",
+      "custom": "Custom"
+    },
+    "addTask": "Add Task",
+    "update": "Update"
+  },
+  "taskList": {
+    "noTasks": "No tasks yet",
+    "clickToAdd": "Click + to add a task"
+  },
+  "calendar": {
+    "today": "Today",
+    "lock": "Lock",
+    "unlock": "Unlock",
+    "delete": "Delete",
+    "day": "Day",
+    "week": "Week",
+    "month": "Month",
+    "moreItems": "+{{count}} more",
+    "dayHeaders": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+  },
+  "settings": {
+    "title": "Settings",
+    "workStart": "Work Start",
+    "workEnd": "Work End",
+    "deepStart": "Deep Start",
+    "deepEnd": "Deep End",
+    "bufferMin": "Buffer (min)",
+    "maxDeepHrs": "Max Deep hrs/day",
+    "maxTotalHrs": "Max Total hrs/day",
+    "minChunk": "Min Chunk (min)",
+    "resetDefaults": "Reset Defaults"
+  },
+  "auth": {
+    "loginTitle": "Welcome back",
+    "loginSubtitle": "Log in to your AutoSched account",
+    "signupTitle": "Create your account",
+    "signupSubtitle": "Start scheduling smarter, for free",
+    "email": "Email",
+    "password": "Password",
+    "displayName": "Name",
+    "emailPlaceholder": "you@example.com",
+    "passwordPlaceholder": "Min. 8 characters",
+    "namePlaceholder": "Your name",
+    "loginButton": "Log in",
+    "loggingIn": "Logging in…",
+    "createAccount": "Create account",
+    "creatingAccount": "Creating account…",
+    "noAccount": "Don't have an account?",
+    "haveAccount": "Already have an account?",
+    "signupLink": "Sign up",
+    "loginLink": "Log in",
+    "accountCreated": "Account created!",
+    "redirecting": "Redirecting to your scheduler…",
+    "termsNotice": "By signing up you agree to our terms of service.",
+    "passwordTooShort": "Password must be at least 8 characters."
+  },
+  "landing": {
+    "badge": "AI-powered scheduling engine",
+    "heroTitle": "Your calendar,",
+    "heroTitleHighlight": "actually working for you",
+    "heroSubtitle": "AutoSched intelligently schedules your tasks around your energy, deadlines, and working hours — so you never have to wrestle with your calendar again.",
+    "getStarted": "Get started free",
+    "ctaTitle": "Ready to stop fighting your schedule?",
+    "ctaSubtitle": "Sign up free and let the engine build your week.",
+    "openScheduler": "Open Scheduler",
+    "features": [
+      {
+        "title": "Cognitive-aware scheduling",
+        "desc": "Deep work, moderate, and light tasks are placed based on your energy windows — not just availability."
+      },
+      {
+        "title": "Three scheduling modes",
+        "desc": "Flexible, anchor, and fixed modes give you precise control over how and when tasks are placed."
+      },
+      {
+        "title": "Recurring task support",
+        "desc": "Daily, weekday, weekly, or custom intervals. The engine handles expansion and conflict detection automatically."
+      },
+      {
+        "title": "Lock and protect blocks",
+        "desc": "Lock any block to keep it in place across rebuilds. The engine works around what you've committed to."
+      },
+      {
+        "title": "Day, week & month views",
+        "desc": "Drag, resize, and navigate your schedule with a familiar calendar interface built for power users."
+      },
+      {
+        "title": "Deadline-aware engine",
+        "desc": "Tasks are scored by priority and deadline urgency, ensuring the right work lands at the right time."
+      }
+    ]
+  },
+  "featuresPage": {
+    "pageTitle": "Everything you need to own your schedule",
+    "pageSubtitle": "AutoSched is built for people who take their work seriously — and need their tools to keep up.",
+    "tryFree": "Try it for free",
+    "getStarted": "Get started",
+    "items": [
+      {
+        "title": "Cognitive-aware scheduling engine",
+        "desc": "The scheduling engine understands your energy. Deep work tasks land in your high-focus window. Moderate tasks fill the afternoon. Light admin goes wherever it fits. Your calendar starts to match how you actually think and work."
+      },
+      {
+        "title": "Three scheduling modes",
+        "desc": "Flexible mode lets the engine decide placement based on deadlines and energy. Anchor mode pins a task to a preferred time window. Fixed mode locks a task to an exact date and time. Use the right mode for each task — not the same mode for everything."
+      },
+      {
+        "title": "Smart chunking and execution styles",
+        "desc": "Long tasks can be split across multiple sessions automatically with auto_chunk mode. Set a single large block with single mode, or manually define a multi-session split. The engine respects min and max chunk sizes from your settings."
+      },
+      {
+        "title": "Recurring tasks",
+        "desc": "Define daily, weekday, weekly, or custom-interval recurring tasks. The engine expands them across your scheduling window and handles conflicts automatically without duplicating blocks."
+      },
+      {
+        "title": "Lock and rebuild",
+        "desc": "Lock any block to freeze it in place. When you hit Rebuild Schedule, the engine replans everything else around your locked commitments. Nothing is disrupted that you told it not to touch."
+      },
+      {
+        "title": "Day, week, and month views",
+        "desc": "Switch between a detailed day view, a full week grid with 15-minute snap, and a month overview. Drag blocks to move them. Resize from the bottom edge. Double-click any slot to quick-add a task."
+      },
+      {
+        "title": "Deadline and priority scoring",
+        "desc": "The engine scores every task by priority level (1–5) and deadline urgency, placing high-stakes tasks earlier and giving breathing room to tasks with distant deadlines."
+      },
+      {
+        "title": "Configurable working hours and limits",
+        "desc": "Set your working hours, your deep work window, buffer time between tasks, and daily limits for deep and total hours. The engine never schedules outside your boundaries."
+      },
+      {
+        "title": "Cloud sync with Supabase",
+        "desc": "Your tasks, blocks, and settings are stored in your own Supabase account with row-level security. Everything is scoped to your user — no one else can read your data."
+      }
+    ]
+  },
+  "faqPage": {
+    "pageTitle": "Frequently asked questions",
+    "pageSubtitle": "Everything you need to know about AutoSched.",
+    "stillQuestions": "Still have questions?",
+    "tryButton": "Try AutoSched free",
+    "items": [
+      {
+        "q": "How does the scheduling engine work?",
+        "a": "AutoSched's engine takes all your active tasks, respects your locked blocks, and builds a schedule that fits within your working hours and energy windows. Tasks are scored by priority and deadline urgency, then placed into the best available slots based on their energy requirement."
+      },
+      {
+        "q": "What is the difference between Flexible, Anchor, and Fixed modes?",
+        "a": "Flexible lets the engine choose when to place the task. Anchor pins the task to a preferred time window (e.g., every morning 9–11am) but allows some flexibility. Fixed locks the task to an exact date and time — the engine will not move it."
+      },
+      {
+        "q": "What happens when I click \"Rebuild Schedule\"?",
+        "a": "The engine recalculates your entire schedule. It keeps all blocks you have locked in place and replans everything else from scratch based on your current tasks and settings."
+      },
+      {
+        "q": "Can I use AutoSched without an account?",
+        "a": "The app requires an account to store your data in the cloud. Without an account, data is only kept in browser localStorage and will be lost if you clear your browser data or switch devices."
+      },
+      {
+        "q": "Is my data private?",
+        "a": "Yes. Your data is stored in a Supabase database with row-level security enabled. Only your account can read or write your tasks, blocks, and settings — no other user can access them."
+      },
+      {
+        "q": "Can I lock a block so it does not get moved during rebuilds?",
+        "a": "Yes. Click the lock icon on any block to freeze it. When you rebuild, the engine works around all locked blocks."
+      },
+      {
+        "q": "How does recurring task support work?",
+        "a": "When you create a recurring task, the engine expands it across your scheduling window based on the recurrence pattern (daily, weekdays, weekly, or a custom interval). Each instance is treated as a separate schedulable unit."
+      },
+      {
+        "q": "What are \"energy levels\" and how do they affect scheduling?",
+        "a": "Deep tasks require high focus and are placed in your designated deep work window (e.g., 8am–12pm). Moderate tasks go in mid-energy periods. Light tasks (admin, reviews) are placed in low-energy slots. You can configure your deep work window in Settings."
+      },
+      {
+        "q": "Can I drag and resize tasks on the calendar?",
+        "a": "Yes. In the week and day views, you can drag any block to move it and drag from the bottom edge to resize it. Moved or resized blocks are automatically locked in place."
+      },
+      {
+        "q": "Can I use AutoSched on mobile?",
+        "a": "The app is optimized for desktop use. A mobile-friendly version may be added in the future."
+      }
+    ]
+  }
+}
