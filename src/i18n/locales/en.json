@@ -1,5 +1,5 @@
 {
-  "app": { "name": "AUTOSCHED" },
+  "app": { "name": "AXIS" },
   "nav": {
     "features": "Features",
     "roadmap": "Roadmap",
@@ -97,7 +97,7 @@
   },
   "auth": {
     "loginTitle": "Welcome back",
-    "loginSubtitle": "Log in to your AutoSched account",
+    "loginSubtitle": "Log in to your AXIS account",
     "signupTitle": "Create your account",
     "signupSubtitle": "Start scheduling smarter, for free",
     "email": "Email",
@@ -120,10 +120,10 @@
     "passwordTooShort": "Password must be at least 8 characters."
   },
   "landing": {
-    "badge": "AI-powered scheduling engine",
+    "badge": "Smart scheduling engine",
     "heroTitle": "Your calendar,",
     "heroTitleHighlight": "actually working for you",
-    "heroSubtitle": "AutoSched intelligently schedules your tasks around your energy, deadlines, and working hours — so you never have to wrestle with your calendar again.",
+    "heroSubtitle": "AXIS intelligently schedules your tasks around your energy, deadlines, and working hours — so you never have to wrestle with your calendar again.",
     "getStarted": "Get started free",
     "ctaTitle": "Ready to stop fighting your schedule?",
     "ctaSubtitle": "Sign up free and let the engine build your week.",
@@ -170,7 +170,7 @@
   },
   "featuresPage": {
     "pageTitle": "Everything you need to own your schedule",
-    "pageSubtitle": "AutoSched is built for people who take their work seriously — and need their tools to keep up.",
+    "pageSubtitle": "AXIS is built for people who take their work seriously — and need their tools to keep up.",
     "tryFree": "Try it for free",
     "getStarted": "Get started",
     "items": [
@@ -214,13 +214,13 @@
   },
   "faqPage": {
     "pageTitle": "Frequently asked questions",
-    "pageSubtitle": "Everything you need to know about AutoSched.",
+    "pageSubtitle": "Everything you need to know about AXIS.",
     "stillQuestions": "Still have questions?",
-    "tryButton": "Try AutoSched free",
+    "tryButton": "Try AXIS free",
     "items": [
       {
         "q": "How does the scheduling engine work?",
-        "a": "AutoSched's engine takes all your active tasks, respects your locked blocks, and builds a schedule that fits within your working hours and energy windows. Tasks are scored by priority and deadline urgency, then placed into the best available slots based on their energy requirement."
+        "a": "AXIS's engine takes all your active tasks, respects your locked blocks, and builds a schedule that fits within your working hours and energy windows. Tasks are scored by priority and deadline urgency, then placed into the best available slots based on their energy requirement."
       },
       {
         "q": "What is the difference between Flexible, Anchor, and Fixed modes?",
@@ -231,7 +231,7 @@
         "a": "The engine recalculates your entire schedule. It keeps all blocks you have locked in place and replans everything else from scratch based on your current tasks and settings."
       },
       {
-        "q": "Can I use AutoSched without an account?",
+        "q": "Can I use AXIS without an account?",
         "a": "The app requires an account to store your data in the cloud. Without an account, data is only kept in browser localStorage and will be lost if you clear your browser data or switch devices."
       },
       {
@@ -255,7 +255,7 @@
         "a": "Yes. In the week and day views, you can drag any block to move it and drag from the bottom edge to resize it. Moved or resized blocks are automatically locked in place."
       },
       {
-        "q": "Can I use AutoSched on mobile?",
+        "q": "Can I use AXIS on mobile?",
         "a": "The app is optimized for desktop use. A mobile-friendly version may be added in the future."
       }
     ]

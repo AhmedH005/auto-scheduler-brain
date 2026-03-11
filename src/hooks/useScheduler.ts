@@ -4,9 +4,9 @@ import { rebuildSchedule } from '@/engine/scheduler';
 import { format } from 'date-fns';
 import { supabase } from '@/lib/supabase';
 
-const TASKS_KEY = 'autosched_tasks';
-const BLOCKS_KEY = 'autosched_blocks';
-const SETTINGS_KEY = 'autosched_settings';
+const TASKS_KEY = 'axis_tasks';
+const BLOCKS_KEY = 'axis_blocks';
+const SETTINGS_KEY = 'axis_settings';
 
 function loadFromStorage<T>(key: string, fallback: T): T {
   try {

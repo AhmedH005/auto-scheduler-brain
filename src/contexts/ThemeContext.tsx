@@ -19,7 +19,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const toggleTheme = useCallback(() => {
     setTheme(prev => {
       const next = prev === 'dark' ? 'light' : 'dark';
-      localStorage.setItem('autosched_theme', next);
+      localStorage.setItem('axis_theme', next);
       if (next === 'light') {
         document.documentElement.classList.add('light');
       } else {

@@ -11,7 +11,7 @@ export function LanguageSwitcher() {
 
   const handleChange = (code: string, dir: string) => {
     i18n.changeLanguage(code);
-    localStorage.setItem('autosched_lang', code);
+    localStorage.setItem('axis_lang', code);
     document.documentElement.dir = dir;
     document.documentElement.lang = code;
   };

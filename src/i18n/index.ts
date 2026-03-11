@@ -4,7 +4,7 @@ import en from './locales/en.json';
 import fr from './locales/fr.json';
 import ar from './locales/ar.json';
 
-const savedLang = localStorage.getItem('autosched_lang') || 'en';
+const savedLang = localStorage.getItem('axis_lang') || 'en';
 
 // Apply RTL on initial load
 document.documentElement.dir = savedLang === 'ar' ? 'rtl' : 'ltr';

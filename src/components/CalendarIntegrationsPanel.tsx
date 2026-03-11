@@ -239,6 +239,29 @@ export function CalendarIntegrationsPanel({
         </Button>
       )}
 
+      {/* Coming soon integrations */}
+      <div className="space-y-1.5">
+        <div className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">
+          Coming soon
+        </div>
+        {[
+          { label: 'Microsoft Outlook', icon: '📅' },
+          { label: 'Apple Calendar',    icon: '🍎' },
+          { label: 'Notion Calendar',   icon: '⬛' },
+        ].map(({ label, icon }) => (
+          <div
+            key={label}
+            className="flex items-center gap-2.5 px-3 py-2 rounded-md border border-border/50 bg-background/30 opacity-50"
+          >
+            <span className="text-sm">{icon}</span>
+            <span className="flex-1 text-[11px] font-sans text-muted-foreground">{label}</span>
+            <span className="text-[9px] font-mono text-muted-foreground/60 border border-border/50 rounded px-1.5 py-0.5">
+              soon
+            </span>
+          </div>
+        ))}
+      </div>
+
       {/* Info note */}
       <p className="text-[10px] font-sans text-muted-foreground/60 leading-relaxed">
         {t('calendarIntegrations.note')}
