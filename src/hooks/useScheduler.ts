@@ -78,7 +78,8 @@ async function syncTasksToSupabase(tasks: Task[], userId: string) {
     status: t.status,
     created_at: t.created_at,
   }));
-  await supabase.from('tasks').upsert(rows, { onConflict: 'id' });
+  const { error } = await supabase.from('tasks').upsert(rows, { onConflict: 'id' });
+  if (error) console.error('[scheduler] syncTasksToSupabase error:', error);
 }
 
 async function syncBlocksToSupabase(blocks: ScheduledBlock[], userId: string) {
