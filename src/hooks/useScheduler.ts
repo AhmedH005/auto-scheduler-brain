@@ -94,7 +94,8 @@ async function syncBlocksToSupabase(blocks: ScheduledBlock[], userId: string) {
     instance_date: b.instance_date,
     source_type: b.locked ? 'manual' : 'engine',
   }));
-  await supabase.from('scheduled_blocks').upsert(rows, { onConflict: 'id' });
+  const { error } = await supabase.from('scheduled_blocks').upsert(rows, { onConflict: 'id' });
+  if (error) console.error('[scheduler] syncBlocksToSupabase error:', error);
 }
 
 async function syncSettingsToSupabase(settings: UserSettings, userId: string) {
@@ -264,15 +265,15 @@ export function useScheduler() {
   useEffect(() => { if (hydrated) saveToStorage(SETTINGS_KEY, settings); }, [settings, hydrated]);
 
   // Persist to Supabase (when user is logged in and data is hydrated)
+  // Sequential: tasks must be written before blocks to avoid FK violations.
   useEffect(() => {
     if (!hydrated || !userIdRef.current) return;
-    syncTasksToSupabase(tasks, userIdRef.current);
-  }, [tasks, hydrated]);
-
-  useEffect(() => {
-    if (!hydrated || !userIdRef.current) return;
-    syncBlocksToSupabase(blocks.filter(b => !isSyncedId(b.task_id)), userIdRef.current);
-  }, [blocks, hydrated]);
+    const uid = userIdRef.current;
+    (async () => {
+      await syncTasksToSupabase(tasks, uid);
+      await syncBlocksToSupabase(blocks.filter(b => !isSyncedId(b.task_id)), uid);
+    })();
+  }, [tasks, blocks, hydrated]);
 
   const settingsSyncTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
