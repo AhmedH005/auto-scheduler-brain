@@ -1,12 +1,12 @@
-import React, { useState } from 'react';
-import { Task, EnergyIntensity, SchedulingMode, ExecutionStyle, RecurrencePattern } from '@/types/task';
+import React, { useMemo, useState } from 'react';
+import { Task, EnergyIntensity, SchedulingMode, ExecutionStyle, RecurrencePattern, DurationSuggestion } from '@/types/task';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Check, X, Calendar, Clock, Zap, Repeat, Shield, Pin, Shuffle, AlertTriangle } from 'lucide-react';
+import { Plus, Check, X, Calendar, Clock, Zap, Repeat, Shield, Pin, Shuffle, AlertTriangle, Sparkles } from 'lucide-react';
 import { ScheduledBlock } from '@/types/task';
 import { TASK_COLORS, DEFAULT_COLOR_ID } from '@/lib/taskColors';
 import { useTranslation } from 'react-i18next';
@@ -19,6 +19,10 @@ interface TaskFormProps {
   existingTasks?: Task[];
   quickAddDate?: string; // yyyy-MM-dd — pre-fills Fixed mode when clicking a slot
   quickAddTime?: string; // HH:mm
+  /** Optional: returns a duration suggestion based on history. */
+  getDurationSuggestion?: (
+    task: Pick<Task, 'id' | 'title' | 'total_duration' | 'energy_intensity'>
+  ) => DurationSuggestion;
 }
 
 function timeToMinutes(t: string): number {
@@ -68,7 +72,7 @@ function checkOverlap(
   return null;
 }
 
-export function TaskForm({ onSubmit, onClose, initialTask, existingBlocks = [], existingTasks = [], quickAddDate, quickAddTime }: TaskFormProps) {
+export function TaskForm({ onSubmit, onClose, initialTask, existingBlocks = [], existingTasks = [], quickAddDate, quickAddTime, getDurationSuggestion }: TaskFormProps) {
   const { t } = useTranslation();
   const [title, setTitle] = useState(initialTask?.title || '');
   const [description, setDescription] = useState(initialTask?.description || '');
@@ -268,6 +272,15 @@ export function TaskForm({ onSubmit, onClose, initialTask, existingBlocks = [], 
                 className="w-14 text-center text-[10px] font-mono bg-secondary border-border h-7 px-1"
               />
             </div>
+            {/* Adaptive duration hint — only renders when there's history-backed signal */}
+            <DurationHint
+              taskId={initialTask?.id}
+              title={title}
+              duration={duration}
+              energy={energy}
+              onApply={setDuration}
+              getDurationSuggestion={getDurationSuggestion}
+            />
           </div>
 
           {/* Priority */}
@@ -460,5 +473,71 @@ export function TaskForm({ onSubmit, onClose, initialTask, existingBlocks = [], 
         {initialTask?.id ? t('taskForm.update') : t('taskForm.addTask')}
       </Button>
     </form>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+//  DurationHint — adaptive duration suggestion based on completion history.
+//  Renders a subtle inline banner when the engine sees you systematically
+//  over- or under-estimate this kind of task. The hint disappears the moment
+//  the user matches the suggestion or there's no useful signal.
+// ─────────────────────────────────────────────────────────────────────────
+
+function DurationHint({
+  taskId,
+  title,
+  duration,
+  energy,
+  onApply,
+  getDurationSuggestion,
+}: {
+  taskId: string | undefined;
+  title: string;
+  duration: number;
+  energy: EnergyIntensity;
+  onApply: (next: number) => void;
+  getDurationSuggestion?: (
+    task: Pick<Task, 'id' | 'title' | 'total_duration' | 'energy_intensity'>
+  ) => DurationSuggestion;
+}) {
+  const suggestion = useMemo(() => {
+    if (!getDurationSuggestion) return null;
+    if (!title || title.trim().length < 3) return null;
+    return getDurationSuggestion({
+      id: taskId ?? 'pending',
+      title,
+      total_duration: duration,
+      energy_intensity: energy,
+    });
+  }, [getDurationSuggestion, taskId, title, duration, energy]);
+
+  if (!suggestion) return null;
+  if (suggestion.confidence === 'none') return null;
+  if (Math.abs(suggestion.delta_pct) < 10) return null; // within 10% — not worth surfacing
+  if (suggestion.suggested_minutes === duration) return null;
+
+  const direction = suggestion.delta_pct > 0 ? 'longer' : 'shorter';
+  const confidenceCopy = {
+    high: `${suggestion.sample_size} past completions`,
+    medium: `${suggestion.sample_size} similar tasks`,
+    low: 'recent pattern',
+  } as const;
+
+  return (
+    <button
+      type="button"
+      onClick={() => onApply(suggestion.suggested_minutes)}
+      className="w-full flex items-start gap-2 px-2 py-1.5 rounded-md bg-primary/8 border border-primary/20 hover:bg-primary/12 transition-colors text-left"
+    >
+      <Sparkles className="w-3 h-3 text-primary shrink-0 mt-0.5" />
+      <div className="flex-1 min-w-0">
+        <p className="text-[10px] font-mono text-primary leading-tight">
+          History suggests {suggestion.suggested_minutes}m ({Math.abs(suggestion.delta_pct)}% {direction})
+        </p>
+        <p className="text-[9px] text-muted-foreground/70 font-mono mt-0.5">
+          Based on {confidenceCopy[suggestion.confidence as 'high' | 'medium' | 'low']}. Click to apply.
+        </p>
+      </div>
+    </button>
   );
 }

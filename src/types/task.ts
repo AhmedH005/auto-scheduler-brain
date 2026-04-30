@@ -71,3 +71,100 @@ export const DEFAULT_SETTINGS: UserSettings = {
   min_chunk_size: 25,
   max_chunk_size: 120,
 };
+
+// ─────────────────────────────────────────────────────────────────────────
+//  Rebuild result + diff types — engine v2
+// ─────────────────────────────────────────────────────────────────────────
+
+export type DropReason =
+  | 'no-fit-before-deadline'
+  | 'over-daily-cap'
+  | 'no-working-hours-remaining'
+  | 'partial-placement'
+  | 'unknown';
+
+export interface DroppedTask {
+  task_id: string;
+  task_title: string;
+  reason: DropReason;
+  remaining_minutes: number; // how much we couldn't place
+  deadline: string | null;
+  instance_date?: string; // for recurring tasks
+}
+
+export type AtRiskReason =
+  | 'lands-on-deadline-day'
+  | 'lands-day-before-deadline'
+  | 'split-spans-deadline'
+  | 'one-shot-at-zero-buffer';
+
+export interface AtRiskTask {
+  task_id: string;
+  task_title: string;
+  reason: AtRiskReason;
+  deadline: string;
+  scheduled_finish: string; // yyyy-MM-ddTHH:mm
+  buffer_minutes: number; // negative if past deadline
+}
+
+export interface RebuildResult {
+  blocks: ScheduledBlock[];
+  dropped: DroppedTask[];
+  at_risk: AtRiskTask[];
+  /** Wall-clock time the rebuild was computed (ISO). */
+  computed_at: string;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+//  Schedule diffing (preview-before-apply)
+// ─────────────────────────────────────────────────────────────────────────
+
+export interface BlockMove {
+  block_id: string;
+  task_id: string;
+  task_title: string;
+  before: { start_time: string; end_time: string };
+  after: { start_time: string; end_time: string };
+}
+
+export interface ScheduleDiff {
+  added: ScheduledBlock[];
+  moved: BlockMove[];
+  removed: ScheduledBlock[];
+  unchanged_count: number;
+  /** Plain-English reasons keyed by block_id or task_id. */
+  reasons: Record<string, string>;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+//  Adaptive duration learning
+// ─────────────────────────────────────────────────────────────────────────
+
+export interface DurationLog {
+  id: string; // unique log id
+  task_id: string;
+  task_title: string;
+  estimated_minutes: number;
+  actual_minutes: number;
+  energy_intensity: EnergyIntensity;
+  completed_at: string; // ISO
+}
+
+export interface DurationSuggestion {
+  estimated_minutes: number; // what the user / task says
+  suggested_minutes: number; // what history says is realistic
+  delta_pct: number; // (suggested - estimated) / estimated * 100
+  confidence: 'high' | 'medium' | 'low' | 'none';
+  sample_size: number;
+  source: 'task-specific' | 'energy-cohort' | 'fallback';
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+//  Undo stack snapshot
+// ─────────────────────────────────────────────────────────────────────────
+
+export interface RescheduleSnapshot {
+  blocks: ScheduledBlock[];
+  taken_at: string; // ISO
+  label: string; // e.g. "Before rebuild at 14:32" or "Before moving 'Thesis ch.3'"
+}

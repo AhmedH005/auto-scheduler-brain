@@ -1,12 +1,28 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
-import { Task, ScheduledBlock, UserSettings, DEFAULT_SETTINGS } from '@/types/task';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import {
+  Task,
+  ScheduledBlock,
+  UserSettings,
+  DEFAULT_SETTINGS,
+  RebuildResult,
+  ScheduleDiff,
+  RescheduleSnapshot,
+  DurationLog,
+  DurationSuggestion,
+} from '@/types/task';
 import { rebuildSchedule } from '@/engine/scheduler';
+import { diffSchedules, explainDiff } from '@/engine/diff';
+import { recordCompletion, suggestDuration } from '@/engine/adaptive-duration';
 import { format } from 'date-fns';
 import { supabase } from '@/lib/supabase';
 
 const TASKS_KEY = 'axis_tasks';
 const BLOCKS_KEY = 'axis_blocks';
 const SETTINGS_KEY = 'axis_settings';
+const UNDO_STACK_KEY = 'axis_undo_stack';
+const DURATION_LOG_KEY = 'axis_duration_log';
+
+const UNDO_STACK_MAX = 10;
 
 function loadFromStorage<T>(key: string, fallback: T): T {
   try {
@@ -44,8 +60,13 @@ function normalizeBlocks(blocks: ScheduledBlock[]): ScheduledBlock[] {
 }
 
 async function getUserId(): Promise<string | null> {
-  const { data } = await supabase.auth.getUser();
-  return data.user?.id ?? null;
+  try {
+    const { data } = await supabase.auth.getUser();
+    return data.user?.id ?? null;
+  } catch {
+    // Network or auth client failure — treat as anonymous, fall back to localStorage
+    return null;
+  }
 }
 
 /** Tasks whose IDs start with 'synced-' are imported from external calendars.
@@ -173,8 +194,6 @@ function mapDbSettingsToSettings(row: Record<string, unknown>): UserSettings {
 export function useScheduler() {
   const [tasks, setTasks] = useState<Task[]>(() => {
     // Strip any old individual synced tasks from localStorage on startup.
-    // These are tasks with 'synced-' IDs that aren't the newer 'synced-rec-' format
-    // (individual fixed tasks created before the recurring-detection logic was added).
     const stored: Task[] = loadFromStorage(TASKS_KEY, []);
     const cleaned = stored.filter(t => !isSyncedId(t.id) || t.id.startsWith('synced-rec-'));
     if (cleaned.length !== stored.length) {
@@ -189,6 +208,19 @@ export function useScheduler() {
     return normalizeBlocks(cleaned);
   });
   const [settings, setSettings] = useState<UserSettings>(() => loadFromStorage(SETTINGS_KEY, DEFAULT_SETTINGS));
+  const [undoStack, setUndoStack] = useState<RescheduleSnapshot[]>(() =>
+    loadFromStorage<RescheduleSnapshot[]>(UNDO_STACK_KEY, [])
+  );
+  const [durationLog, setDurationLog] = useState<DurationLog[]>(() =>
+    loadFromStorage<DurationLog[]>(DURATION_LOG_KEY, [])
+  );
+
+  // Pending state — set by previewRebuild, cleared by applyPending / cancelPending
+  const [pendingResult, setPendingResult] = useState<RebuildResult | null>(null);
+  const [pendingDiff, setPendingDiff] = useState<ScheduleDiff | null>(null);
+
+  // Last-applied result — for surfacing summary in toasts/banners after silent rebuilds
+  const [lastResult, setLastResult] = useState<RebuildResult | null>(null);
 
   // Track user id for Supabase syncing
   const userIdRef = useRef<string | null>(null);
@@ -207,52 +239,51 @@ export function useScheduler() {
         return;
       }
 
-      // Load tasks
-      const { data: taskRows } = await supabase
-        .from('tasks')
-        .select('*')
-        .eq('user_id', uid)
-        .order('created_at', { ascending: true });
+      try {
+        const { data: taskRows } = await supabase
+          .from('tasks')
+          .select('*')
+          .eq('user_id', uid)
+          .order('created_at', { ascending: true });
 
-      // Load blocks
-      const { data: blockRows } = await supabase
-        .from('scheduled_blocks')
-        .select('*')
-        .eq('user_id', uid)
-        .order('start_at', { ascending: true });
+        const { data: blockRows } = await supabase
+          .from('scheduled_blocks')
+          .select('*')
+          .eq('user_id', uid)
+          .order('start_at', { ascending: true });
 
-      // Load settings
-      const { data: settingsRow } = await supabase
-        .from('user_settings')
-        .select('*')
-        .eq('user_id', uid)
-        .maybeSingle();
+        const { data: settingsRow } = await supabase
+          .from('user_settings')
+          .select('*')
+          .eq('user_id', uid)
+          .maybeSingle();
 
-      if (cancelled) return;
+        if (cancelled) return;
 
-      if (taskRows && taskRows.length > 0) {
-        // Filter out synced tasks that may have been accidentally saved to the tasks table,
-        // and clean them up from Supabase while we're at it.
-        const syncedInDb = taskRows.filter(r => isSyncedId(r.id as string));
-        if (syncedInDb.length > 0) {
-          supabase.from('tasks').delete().in('id', syncedInDb.map(r => r.id)).eq('user_id', uid);
-          supabase.from('scheduled_blocks').delete().in('task_id', syncedInDb.map(r => r.id)).eq('user_id', uid);
+        if (taskRows && taskRows.length > 0) {
+          const syncedInDb = taskRows.filter(r => isSyncedId(r.id as string));
+          if (syncedInDb.length > 0) {
+            supabase.from('tasks').delete().in('id', syncedInDb.map(r => r.id)).eq('user_id', uid);
+            supabase.from('scheduled_blocks').delete().in('task_id', syncedInDb.map(r => r.id)).eq('user_id', uid);
+          }
+          const mapped = taskRows.map(mapDbTaskToTask).filter(t => !isSyncedId(t.id));
+          setTasks(mapped);
+          saveToStorage(TASKS_KEY, mapped);
         }
-        const mapped = taskRows.map(mapDbTaskToTask).filter(t => !isSyncedId(t.id));
-        setTasks(mapped);
-        saveToStorage(TASKS_KEY, mapped);
-      }
 
-      if (blockRows && blockRows.length > 0) {
-        const mapped = normalizeBlocks(blockRows.map(mapDbBlockToBlock));
-        setBlocks(mapped);
-        saveToStorage(BLOCKS_KEY, mapped);
-      }
+        if (blockRows && blockRows.length > 0) {
+          const mapped = normalizeBlocks(blockRows.map(mapDbBlockToBlock));
+          setBlocks(mapped);
+          saveToStorage(BLOCKS_KEY, mapped);
+        }
 
-      if (settingsRow) {
-        const mapped = mapDbSettingsToSettings(settingsRow as Record<string, unknown>);
-        setSettings(mapped);
-        saveToStorage(SETTINGS_KEY, mapped);
+        if (settingsRow) {
+          const mapped = mapDbSettingsToSettings(settingsRow as Record<string, unknown>);
+          setSettings(mapped);
+          saveToStorage(SETTINGS_KEY, mapped);
+        }
+      } catch (err) {
+        console.warn('[scheduler] Supabase hydration failed, using localStorage only', err);
       }
 
       setHydrated(true);
@@ -264,6 +295,8 @@ export function useScheduler() {
   useEffect(() => { if (hydrated) saveToStorage(TASKS_KEY, tasks); }, [tasks, hydrated]);
   useEffect(() => { if (hydrated) saveToStorage(BLOCKS_KEY, blocks); }, [blocks, hydrated]);
   useEffect(() => { if (hydrated) saveToStorage(SETTINGS_KEY, settings); }, [settings, hydrated]);
+  useEffect(() => { if (hydrated) saveToStorage(UNDO_STACK_KEY, undoStack); }, [undoStack, hydrated]);
+  useEffect(() => { if (hydrated) saveToStorage(DURATION_LOG_KEY, durationLog); }, [durationLog, hydrated]);
 
   // Persist to Supabase (when user is logged in and data is hydrated)
   // Sequential: tasks must be written before blocks to avoid FK violations.
@@ -299,6 +332,18 @@ export function useScheduler() {
     });
   }, []);
 
+  const pushUndoSnapshot = useCallback((label: string) => {
+    setUndoStack(prev => {
+      const snapshot: RescheduleSnapshot = {
+        blocks: blocks.map(b => ({ ...b })),
+        taken_at: new Date().toISOString(),
+        label,
+      };
+      const next = [snapshot, ...prev].slice(0, UNDO_STACK_MAX);
+      return next;
+    });
+  }, [blocks]);
+
   const addTask = useCallback((task: Task) => {
     setTasks(prev => [...prev, task]);
   }, []);
@@ -310,7 +355,6 @@ export function useScheduler() {
   const deleteTask = useCallback(async (id: string) => {
     setTasks(prev => prev.filter(t => t.id !== id));
     updateBlocksSafely(prev => prev.filter(b => b.task_id !== id));
-    // Delete from Supabase
     if (userIdRef.current) {
       await supabase.from('scheduled_blocks').delete().eq('task_id', id).eq('user_id', userIdRef.current);
       await supabase.from('tasks').delete().eq('id', id).eq('user_id', userIdRef.current);
@@ -333,6 +377,7 @@ export function useScheduler() {
   }, [updateBlocksSafely]);
 
   const moveBlock = useCallback((blockId: string, newStart: string, newEnd: string) => {
+    pushUndoSnapshot('Move block');
     updateBlocksSafely(prev =>
       prev.map(b => {
         if (b.id !== blockId) return b;
@@ -345,29 +390,20 @@ export function useScheduler() {
         };
       })
     );
-  }, [updateBlocksSafely]);
+  }, [updateBlocksSafely, pushUndoSnapshot]);
 
   const resizeBlock = useCallback((blockId: string, newEnd: string) => {
+    pushUndoSnapshot('Resize block');
     updateBlocksSafely(prev =>
       prev.map(b => {
         if (b.id !== blockId) return b;
-        return {
-          ...b,
-          end_time: newEnd,
-          locked: true,
-        };
+        return { ...b, end_time: newEnd, locked: true };
       })
     );
-  }, [updateBlocksSafely]);
+  }, [updateBlocksSafely, pushUndoSnapshot]);
 
-  /** Import tasks from Google/MS Calendar into the native tasks state.
-   *  Only adds tasks not already present (preserves any user edits to previously imported tasks). */
   const importSyncedTasks = useCallback((incoming: Task[]) => {
     setTasks(prev => {
-      // Use the 'synced-' ID prefix as the reliable marker for imported tasks
-      // (sync_source may be missing if a task was loaded from Supabase without that field).
-      // Strategy: keep native tasks + synced tasks whose ID is in the new batch
-      // (preserves user edits to still-valid synced tasks); drop all other synced tasks.
       const incomingIds = new Set(incoming.map(t => t.id));
       const native = prev.filter(t => !isSyncedId(t.id) || incomingIds.has(t.id));
       const existingIds = new Set(native.map(t => t.id));
@@ -377,13 +413,17 @@ export function useScheduler() {
     });
   }, []);
 
-  const rebuild = useCallback(() => {
+  // ─────────────────────────────────────────────────────────────────────
+  //  Rebuild flow — split into preview + apply
+  // ─────────────────────────────────────────────────────────────────────
+
+  /** Compute the rebuild result without committing. Sets pending state. */
+  const previewRebuild = useCallback(() => {
     const activeTasks = tasks.filter(t => t.status === 'active');
     const allTaskIds = new Set(activeTasks.map(t => t.id));
-    // Preserve locked blocks whose task still exists.
     const rawLocked = blocks.filter(b => b.locked && allTaskIds.has(b.task_id));
 
-    // Deduplicate overlapping locked blocks.
+    // Deduplicate overlapping locked blocks (defensive — guards against bad data).
     const deduped: typeof rawLocked = [];
     for (const block of rawLocked) {
       const start = new Date(block.start_time).getTime();
@@ -396,28 +436,145 @@ export function useScheduler() {
       if (!conflicts) deduped.push(block);
     }
 
-    const newBlocks = rebuildSchedule(activeTasks, deduped, settings);
-    setBlocks(normalizeBlocks(newBlocks));
+    const result = rebuildSchedule(activeTasks, deduped, settings);
+    const proposed = normalizeBlocks(result.blocks);
+    const diff = explainDiff(diffSchedules(blocks, proposed, activeTasks), result, activeTasks);
+
+    setPendingResult({ ...result, blocks: proposed });
+    setPendingDiff(diff);
+    return { result: { ...result, blocks: proposed }, diff };
   }, [tasks, blocks, settings]);
+
+  /** Commit the pending rebuild. Pushes the previous schedule to undo stack. */
+  const applyPending = useCallback(() => {
+    if (!pendingResult) return;
+    pushUndoSnapshot(`Before rebuild at ${format(new Date(), 'HH:mm')}`);
+    setBlocks(normalizeBlocks(pendingResult.blocks));
+    setLastResult(pendingResult);
+    setPendingResult(null);
+    setPendingDiff(null);
+  }, [pendingResult, pushUndoSnapshot]);
+
+  /** Discard the pending rebuild without applying. */
+  const cancelPending = useCallback(() => {
+    setPendingResult(null);
+    setPendingDiff(null);
+  }, []);
+
+  /** Silent rebuild — used by inline task add/update/delete. No preview, but
+   *  still pushes a snapshot for undo so user can revert if surprised. */
+  const rebuild = useCallback((opts: { silent?: boolean } = {}) => {
+    const activeTasks = tasks.filter(t => t.status === 'active');
+    const allTaskIds = new Set(activeTasks.map(t => t.id));
+    const rawLocked = blocks.filter(b => b.locked && allTaskIds.has(b.task_id));
+
+    const deduped: typeof rawLocked = [];
+    for (const block of rawLocked) {
+      const start = new Date(block.start_time).getTime();
+      const end = new Date(block.end_time).getTime();
+      const conflicts = deduped.some(b => {
+        const bStart = new Date(b.start_time).getTime();
+        const bEnd = new Date(b.end_time).getTime();
+        return bStart < end && bEnd > start;
+      });
+      if (!conflicts) deduped.push(block);
+    }
+
+    pushUndoSnapshot(opts.silent ? 'Auto-rebuild' : `Rebuild at ${format(new Date(), 'HH:mm')}`);
+    const result = rebuildSchedule(activeTasks, deduped, settings);
+    setBlocks(normalizeBlocks(result.blocks));
+    setLastResult(result);
+    return result;
+  }, [tasks, blocks, settings, pushUndoSnapshot]);
+
+  /** Undo the last reschedule operation. */
+  const undo = useCallback(() => {
+    setUndoStack(prev => {
+      if (prev.length === 0) return prev;
+      const [snapshot, ...rest] = prev;
+      setBlocks(normalizeBlocks(snapshot.blocks));
+      return rest;
+    });
+  }, []);
+
+  const canUndo = undoStack.length > 0;
+
+  // ─────────────────────────────────────────────────────────────────────
+  //  Adaptive duration
+  // ─────────────────────────────────────────────────────────────────────
+
+  const markBlockComplete = useCallback(
+    (block: ScheduledBlock, actualMinutes: number) => {
+      const task = tasks.find(t => t.id === block.task_id);
+      if (!task) return;
+      setDurationLog(prev =>
+        recordCompletion(prev, {
+          task_id: task.id,
+          task_title: task.title,
+          estimated_minutes: task.total_duration,
+          actual_minutes: actualMinutes,
+          energy_intensity: task.energy_intensity,
+        })
+      );
+    },
+    [tasks]
+  );
+
+  const getDurationSuggestion = useCallback(
+    (task: Pick<Task, 'id' | 'title' | 'total_duration' | 'energy_intensity'>): DurationSuggestion => {
+      return suggestDuration(task, durationLog);
+    },
+    [durationLog]
+  );
 
   const updateSettings = useCallback((updates: Partial<UserSettings>) => {
     setSettings(prev => ({ ...prev, ...updates }));
   }, []);
 
+  // Memoized convenience: counts visible in UI
+  const summary = useMemo(() => {
+    return {
+      activeTasks: tasks.filter(t => t.status === 'active').length,
+      placedBlocks: blocks.filter(b => !b.locked).length,
+      lockedBlocks: blocks.filter(b => b.locked).length,
+      droppedTasks: lastResult?.dropped.length ?? 0,
+      atRiskTasks: lastResult?.at_risk.length ?? 0,
+    };
+  }, [tasks, blocks, lastResult]);
+
   return {
+    // State
     tasks,
     blocks,
     settings,
+    summary,
+    pendingResult,
+    pendingDiff,
+    lastResult,
+    durationLog,
+    canUndo,
+    undoStackSize: undoStack.length,
+    // Tasks
     addTask,
     updateTask,
     deleteTask,
+    importSyncedTasks,
+    // Blocks
     lockBlock,
     unlockBlock,
     deleteBlock,
     moveBlock,
     resizeBlock,
+    // Rebuild flow
+    previewRebuild,
+    applyPending,
+    cancelPending,
     rebuild,
+    undo,
+    // Adaptive duration
+    markBlockComplete,
+    getDurationSuggestion,
+    // Settings
     updateSettings,
-    importSyncedTasks,
   };
 }

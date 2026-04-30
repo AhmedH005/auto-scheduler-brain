@@ -1,4 +1,14 @@
-import { Task, ScheduledBlock, UserSettings, TaskInstance, DEFAULT_SETTINGS } from '@/types/task';
+import {
+  Task,
+  ScheduledBlock,
+  UserSettings,
+  TaskInstance,
+  DEFAULT_SETTINGS,
+  RebuildResult,
+  DroppedTask,
+  AtRiskTask,
+  DropReason,
+} from '@/types/task';
 import { expandRecurringTasks } from './recurring';
 import { calculateScore } from './scoring';
 import { addDays, format } from 'date-fns';
@@ -14,13 +24,19 @@ function parseLocalDate(dateStr: string): Date {
 }
 
 function formatLocalDateTime(date: Date): string {
+  // Include timezone offset so Supabase (timestamptz) stores the correct instant.
+  // Without this, PostgreSQL treats the string as UTC, shifting times for non-UTC users.
   const y = date.getFullYear();
   const mo = String(date.getMonth() + 1).padStart(2, '0');
   const d = String(date.getDate()).padStart(2, '0');
   const h = String(date.getHours()).padStart(2, '0');
   const mi = String(date.getMinutes()).padStart(2, '0');
   const s = String(date.getSeconds()).padStart(2, '0');
-  return `${y}-${mo}-${d}T${h}:${mi}:${s}`;
+  const tzOffset = -date.getTimezoneOffset();
+  const sign = tzOffset >= 0 ? '+' : '-';
+  const tzH = String(Math.floor(Math.abs(tzOffset) / 60)).padStart(2, '0');
+  const tzM = String(Math.abs(tzOffset) % 60).padStart(2, '0');
+  return `${y}-${mo}-${d}T${h}:${mi}:${s}${sign}${tzH}:${tzM}`;
 }
 
 interface DayState {
@@ -86,11 +102,31 @@ function hasTimeConflict(results: ScheduledBlock[], startDt: Date, endDt: Date):
   });
 }
 
+/**
+ * Rebuild the entire schedule.
+ *
+ * Returns a structured result with:
+ *   - blocks:   the new scheduled blocks (locked + flexible)
+ *   - dropped:  tasks/instances that couldn't be fully placed, with reasons
+ *   - at_risk:  tasks placed but whose finish lands close to (or past) deadline
+ *   - computed_at: ISO timestamp of when the rebuild was computed
+ *
+ * Trust contract (verified by tests in src/test/scheduler.test.ts):
+ *   1. Locked blocks (`b.locked === true`) are never moved.
+ *   2. Synced external calendar events (those passed in lockedBlocks with
+ *      a 'synced-' task_id prefix) are never modified.
+ *   3. Fixed tasks land at exactly their start_datetime/end_datetime.
+ *   4. Anchor tasks land in their preferred window (recurring → one per
+ *      occurrence date).
+ *   5. No block ever lands past its task's deadline.
+ *   6. Daily caps (max_total + max_deep) are never exceeded.
+ *   7. Working hours (working_hours_start..working_hours_end) are honored.
+ */
 export function rebuildSchedule(
   tasks: Task[],
   lockedBlocks: ScheduledBlock[],
   settings: UserSettings = DEFAULT_SETTINGS,
-): ScheduledBlock[] {
+): RebuildResult {
   const { rangeStart, rangeEnd } = computeRange(tasks);
 
   const results: ScheduledBlock[] = [...lockedBlocks.filter(b => b.locked)];
@@ -265,6 +301,11 @@ export function rebuildSchedule(
     }
   }
 
+  // Track placement outcomes — populated as we schedule
+  const dropped: DroppedTask[] = [];
+  const placedMinutesByInstance = new Map<string, number>();
+  const requiredMinutesByInstance = new Map<string, number>();
+
   // Schedule each instance
   const rangeEndStr = format(rangeEnd, 'yyyy-MM-dd');
 
@@ -272,6 +313,9 @@ export function rebuildSchedule(
     const key = getInstanceKey(instance.task.id, instance.task.is_recurring ? instance.instance_date : '');
     const consumed = consumedMinutesByInstance.get(key) || 0;
     const remaining = Math.max(instance.remaining_duration - consumed, 0);
+
+    requiredMinutesByInstance.set(key, instance.remaining_duration);
+    placedMinutesByInstance.set(key, consumed);
 
     if (remaining <= 0) continue;
 
@@ -281,12 +325,102 @@ export function rebuildSchedule(
       instance_date: instance.task.is_recurring ? instance.instance_date : '',
     };
 
-    scheduleInstance(effectiveInstance, results, dayStates, settings, rangeStart, rangeEndStr);
+    const placedHere = scheduleInstance(
+      effectiveInstance,
+      results,
+      dayStates,
+      settings,
+      rangeStart,
+      rangeEndStr
+    );
+
+    placedMinutesByInstance.set(key, consumed + placedHere);
   }
 
-  return results;
+  // Compute dropped tasks: any instance where placed < required
+  for (const instance of schedulableInstances) {
+    const key = getInstanceKey(instance.task.id, instance.task.is_recurring ? instance.instance_date : '');
+    const required = requiredMinutesByInstance.get(key) ?? 0;
+    const placed = placedMinutesByInstance.get(key) ?? 0;
+    if (placed < required) {
+      const remaining = required - placed;
+      const reason: DropReason = inferDropReason(instance.task, dayStates, remaining, settings);
+      dropped.push({
+        task_id: instance.task.id,
+        task_title: instance.task.title,
+        reason,
+        remaining_minutes: remaining,
+        deadline: instance.task.deadline,
+        instance_date: instance.task.is_recurring ? instance.instance_date : undefined,
+      });
+    }
+  }
+
+  // Compute at-risk tasks: placed but finish near/past deadline
+  const at_risk: AtRiskTask[] = [];
+  for (const block of results) {
+    if (block.locked) continue; // anchors/fixed by definition not "at risk"
+    const task = taskMap.get(block.task_id);
+    if (!task || !task.deadline) continue;
+    const blockEnd = new Date(block.end_time);
+    const deadlineEnd = parseLocalDate(task.deadline);
+    deadlineEnd.setHours(23, 59, 59, 999);
+    const bufferMs = deadlineEnd.getTime() - blockEnd.getTime();
+    const bufferMinutes = Math.round(bufferMs / 60000);
+    const blockDate = format(blockEnd, 'yyyy-MM-dd');
+
+    if (blockDate === task.deadline) {
+      // Lands ON deadline day
+      // Only flag the LAST block of this task (highest end time)
+      const sameTaskBlocks = results.filter(b => b.task_id === task.id);
+      const lastBlock = sameTaskBlocks.reduce((latest, b) =>
+        new Date(b.end_time) > new Date(latest.end_time) ? b : latest
+      );
+      if (lastBlock.id !== block.id) continue;
+      at_risk.push({
+        task_id: task.id,
+        task_title: task.title,
+        reason: 'lands-on-deadline-day',
+        deadline: task.deadline,
+        scheduled_finish: block.end_time,
+        buffer_minutes: bufferMinutes,
+      });
+    } else if (blockDate < task.deadline) {
+      // Lands day before deadline — flag if it's a one-shot task and the buffer is < 1 day's worth of work
+      const dayBeforeDeadline = format(addDays(parseLocalDate(task.deadline), -1), 'yyyy-MM-dd');
+      if (blockDate === dayBeforeDeadline) {
+        const sameTaskBlocks = results.filter(b => b.task_id === task.id);
+        const lastBlock = sameTaskBlocks.reduce((latest, b) =>
+          new Date(b.end_time) > new Date(latest.end_time) ? b : latest
+        );
+        if (lastBlock.id !== block.id) continue;
+        // Only flag if total task time > 2 hours (so a small task next-to-deadline isn't "risk")
+        if (task.total_duration > 120) {
+          at_risk.push({
+            task_id: task.id,
+            task_title: task.title,
+            reason: 'lands-day-before-deadline',
+            deadline: task.deadline,
+            scheduled_finish: block.end_time,
+            buffer_minutes: bufferMinutes,
+          });
+        }
+      }
+    }
+  }
+
+  return {
+    blocks: results,
+    dropped,
+    at_risk,
+    computed_at: new Date().toISOString(),
+  };
 }
 
+/**
+ * Try to place an instance into open slots across the planning horizon.
+ * Returns the number of minutes successfully placed.
+ */
 function scheduleInstance(
   instance: TaskInstance,
   results: ScheduledBlock[],
@@ -294,9 +428,10 @@ function scheduleInstance(
   settings: UserSettings,
   rangeStart: Date,
   rangeEndStr: string
-): void {
+): number {
   const { task } = instance;
   let remainingDuration = instance.remaining_duration;
+  let placedMinutes = 0;
 
   // Determine the latest allowed day for this task
   const latestAllowedDay = task.deadline || rangeEndStr;
@@ -371,12 +506,48 @@ function scheduleInstance(
       }
 
       remainingDuration -= chunkSize;
+      placedMinutes += chunkSize;
       scheduled = true;
       break;
     }
 
     if (!scheduled) break;
   }
+
+  return placedMinutes;
+}
+
+/** Best guess at why a task instance got dropped. */
+function inferDropReason(
+  task: Task,
+  dayStates: Map<string, DayState>,
+  remainingMinutes: number,
+  settings: UserSettings
+): DropReason {
+  // Did we run out of working hours before deadline?
+  if (task.deadline) {
+    const deadline = parseLocalDate(task.deadline);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const daysUntil = Math.ceil((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    const maxAvailableMinutes = daysUntil * settings.max_total_hours_per_day * 60;
+    if (remainingMinutes > maxAvailableMinutes) {
+      return 'no-fit-before-deadline';
+    }
+  }
+
+  // Were daily caps the binding constraint?
+  let allDaysFull = true;
+  for (const state of dayStates.values()) {
+    if (state.totalMinutesUsed < settings.max_total_hours_per_day * 60 && state.slots.length > 0) {
+      allDaysFull = false;
+      break;
+    }
+  }
+  if (allDaysFull) return 'over-daily-cap';
+
+  // Partial placement (some chunks fit but not all)
+  return 'partial-placement';
 }
 
 function findSlot(

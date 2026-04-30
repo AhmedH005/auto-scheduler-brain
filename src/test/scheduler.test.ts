@@ -3,6 +3,14 @@ import { rebuildSchedule } from '@/engine/scheduler';
 import { Task, ScheduledBlock, DEFAULT_SETTINGS, UserSettings } from '@/types/task';
 import { format, addDays } from 'date-fns';
 
+// Engine v2 returns a RebuildResult; the placement tests below pre-date
+// that change and care only about the blocks list. Unwrap for them.
+const runBlocks = (
+  tasks: Task[],
+  locked: ScheduledBlock[] = [],
+  settings: UserSettings = DEFAULT_SETTINGS
+) => rebuildSchedule(tasks, locked, settings).blocks;
+
 // Lock "today" to a Monday so weekday recurrences are deterministic.
 // 2026-04-27 is a Monday. All relative dates derive from this.
 const TODAY = new Date('2026-04-27T08:00:00Z').getTime();
@@ -57,7 +65,7 @@ describe('rebuildSchedule — placement', () => {
       total_duration: 90,
       deadline: offsetDate(3),
     });
-    const blocks = rebuildSchedule([task], [], DEFAULT_SETTINGS);
+    const blocks = runBlocks([task]);
     const placed = blocks.find(b => b.task_id === task.id);
     expect(placed).toBeDefined();
     const hour = blockHour(placed!);
@@ -73,7 +81,7 @@ describe('rebuildSchedule — placement', () => {
       end_datetime: `${offsetDate(2)}T14:45:00`,
       total_duration: 45,
     });
-    const blocks = rebuildSchedule([task], [], DEFAULT_SETTINGS);
+    const blocks = runBlocks([task]);
     const placed = blocks.find(b => b.task_id === task.id);
     expect(placed).toBeDefined();
     expect(placed!.locked).toBe(true);
@@ -92,7 +100,7 @@ describe('rebuildSchedule — placement', () => {
       recurrence_pattern: 'weekdays',
       recurrence_end: offsetDate(14),
     });
-    const blocks = rebuildSchedule([task], [], DEFAULT_SETTINGS);
+    const blocks = runBlocks([task]);
     const anchorBlocks = blocks.filter(b => b.task_id === task.id);
     expect(anchorBlocks.length).toBeGreaterThanOrEqual(5); // at least one work week
     anchorBlocks.forEach(b => {
@@ -110,7 +118,7 @@ describe('rebuildSchedule — invariants (trust contract)', () => {
       deadline: offsetDate(1), // due tomorrow
       priority: 5,
     });
-    const blocks = rebuildSchedule([task], [], DEFAULT_SETTINGS);
+    const blocks = runBlocks([task]);
     const placed = blocks.filter(b => b.task_id === task.id);
     placed.forEach(b => {
       expect(blockDate(b) <= offsetDate(1)).toBe(true);
@@ -128,7 +136,7 @@ describe('rebuildSchedule — invariants (trust contract)', () => {
       block_type: 'focus',
       instance_date: offsetDate(0),
     };
-    const blocks = rebuildSchedule([task], [lockedBlock], DEFAULT_SETTINGS);
+    const blocks = runBlocks([task], [lockedBlock]);
     const survivor = blocks.find(b => b.id === 'manual-lock-1');
     expect(survivor).toBeDefined();
     expect(survivor!.start_time).toContain('15:00:00');
@@ -141,7 +149,7 @@ describe('rebuildSchedule — invariants (trust contract)', () => {
     const tasks = Array.from({ length: 8 }, (_, i) =>
       makeTask({ id: `t-${i}`, title: `Work ${i}`, total_duration: 60, deadline: offsetDate(2) })
     );
-    const blocks = rebuildSchedule(tasks, [], settings);
+    const blocks = runBlocks(tasks, [], settings);
     // Group by date
     const byDate = new Map<string, number>();
     blocks.forEach(b => {
@@ -165,7 +173,7 @@ describe('rebuildSchedule — invariants (trust contract)', () => {
         deadline: offsetDate(2),
       })
     );
-    const blocks = rebuildSchedule(tasks, [], settings);
+    const blocks = runBlocks(tasks, [], settings);
     const byDate = new Map<string, number>();
     blocks.forEach(b => {
       const date = blockDate(b);
@@ -181,7 +189,7 @@ describe('rebuildSchedule — invariants (trust contract)', () => {
     const tasks = Array.from({ length: 4 }, (_, i) =>
       makeTask({ id: `w-${i}`, title: `Work ${i}`, total_duration: 60 })
     );
-    const blocks = rebuildSchedule(tasks, [], DEFAULT_SETTINGS).filter(b => !b.locked);
+    const blocks = runBlocks(tasks).filter(b => !b.locked);
     blocks.forEach(b => {
       const startH = blockHour(b);
       const endH = new Date(b.end_time).getHours();
@@ -197,7 +205,7 @@ describe('rebuildSchedule — invariants (trust contract)', () => {
       makeTask({ id: 'b', title: 'B', total_duration: 60, deadline: offsetDate(2) }),
       makeTask({ id: 'c', title: 'C', total_duration: 60, deadline: offsetDate(2) }),
     ];
-    const blocks = rebuildSchedule(tasks, [], settings)
+    const blocks = runBlocks(tasks, [], settings)
       .filter(b => !b.locked)
       .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
 
@@ -223,7 +231,7 @@ describe('rebuildSchedule — over-commit behavior', () => {
         priority: 3,
       })
     );
-    const blocks = rebuildSchedule(tasks, [], settings).filter(b => !b.locked);
+    const blocks = runBlocks(tasks, [], settings).filter(b => !b.locked);
     const placedTaskIds = new Set(blocks.map(b => b.task_id));
     // We placed AT MOST what fits in remaining time. Some tasks WILL be dropped.
     expect(placedTaskIds.size).toBeLessThan(tasks.length);
@@ -244,7 +252,7 @@ describe('rebuildSchedule — recurring expansion', () => {
       recurrence_pattern: 'weekdays',
       recurrence_end: offsetDate(13), // 2 weeks
     });
-    const blocks = rebuildSchedule([task], [], DEFAULT_SETTINGS);
+    const blocks = runBlocks([task]);
     const placed = blocks.filter(b => b.task_id === task.id);
     placed.forEach(b => {
       const day = new Date(b.start_time).getDay(); // 0=Sun, 6=Sat
@@ -275,7 +283,7 @@ describe('rebuildSchedule — score-driven priority', () => {
       priority: 5,
       deadline: offsetDate(1),
     });
-    const blocks = rebuildSchedule([lowPri, highPri], [], settings).filter(b => !b.locked);
+    const blocks = runBlocks([lowPri, highPri], [], settings).filter(b => !b.locked);
     const today = offsetDate(0);
     const todayBlocks = blocks.filter(b => blockDate(b) === today);
     // High-priority urgent task should land today
