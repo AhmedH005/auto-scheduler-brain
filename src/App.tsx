@@ -26,7 +26,17 @@ const App = () => (
         <AuthProvider>
           <Routes>
             {/* Public routes */}
-            <Route path="/" element={<Landing />} />
+            {/* DEV: send root straight to the calendar so the test loop is
+                instant. To restore the marketing landing page, swap back
+                to `<Route path="/" element={<Landing />} />`. */}
+            <Route
+              path="/"
+              element={
+                import.meta.env.DEV
+                  ? <Navigate to="/app/calendar" replace />
+                  : <Landing />
+              }
+            />
             <Route path="/features" element={<Features />} />
             <Route path="/faq" element={<FAQ />} />
             <Route path="/roadmap" element={<Roadmap />} />

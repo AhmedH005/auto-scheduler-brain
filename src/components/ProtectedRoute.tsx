@@ -5,9 +5,19 @@ interface ProtectedRouteProps {
   children: React.ReactNode;
 }
 
+// DEV BYPASS: while Supabase auth is unreachable, allow the protected app
+// routes to render without a logged-in user. The scheduler hook already
+// has a localStorage-only fallback path, so the calendar still works.
+// To re-enable auth: delete the constant and the early-return below.
+const DEV_BYPASS_AUTH = import.meta.env.DEV;
+
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { user, loading } = useAuth();
   const location = useLocation();
+
+  if (DEV_BYPASS_AUTH) {
+    return <>{children}</>;
+  }
 
   if (loading) {
     return (
