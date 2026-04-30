@@ -13,6 +13,8 @@ import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 import { RebuildPreviewSheet } from '@/components/RebuildPreviewSheet';
 import { CommandPalette } from '@/components/CommandPalette';
 import { ScheduleDensityBar } from '@/components/ScheduleDensityBar';
+import { InsightsBanner } from '@/components/InsightsBanner';
+import { WeeklyRetrospectiveSheet } from '@/components/WeeklyRetrospectiveSheet';
 import { Task } from '@/types/task';
 import { useExternalCalendars } from '@/hooks/useExternalCalendars';
 import { Button } from '@/components/ui/button';
@@ -38,6 +40,7 @@ const Index = () => {
     getDurationSuggestion,
     markBlockDone, markBlockReopen, markBlockSkipped, replanFromNow,
     setDayMode, getDayMode, dailyOverrides,
+    insights, applyLearnedDeepWindow, applyLearnedCap,
     updateSettings, importSyncedTasks,
   } = useScheduler();
 
@@ -66,6 +69,8 @@ const Index = () => {
   const [quickAddDate, setQuickAddDate] = useState<string | undefined>();
   const [quickAddTime, setQuickAddTime] = useState<string | undefined>();
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [retroOpen, setRetroOpen] = useState(false);
+  const [insightsDismissed, setInsightsDismissed] = useState<Set<string>>(new Set());
   const lastResultIdRef = useRef<string | null>(null);
 
   // First-load auto rebuild — silent, no preview interruption
@@ -379,6 +384,39 @@ const Index = () => {
 
       {/* Calendar area */}
       <div className="flex-1 min-w-0 flex flex-col">
+        {/* Learning-layer nudges — only renders when there's actionable signal */}
+        <InsightsBanner
+          energy={insights.energy}
+          capacity={insights.capacity}
+          missed={insights.missed}
+          dismissed={insightsDismissed}
+          onDismiss={(key) => setInsightsDismissed(prev => new Set(prev).add(key))}
+          onApplyEnergy={() => {
+            applyLearnedDeepWindow();
+            const s = String(insights.energy.suggested_start_hour).padStart(2, '0');
+            const e = String(insights.energy.suggested_end_hour).padStart(2, '0');
+            toast.success('Deep window updated', {
+              description: `Now ${s}:00–${e}:00 — based on your real completion history.`,
+              duration: 4500,
+            });
+          }}
+          onApplyCapacity={() => {
+            applyLearnedCap();
+            toast.success(`Daily cap set to ${insights.capacity.suggested_cap_hours}h`, {
+              description: insights.capacity.reason,
+              duration: 4500,
+            });
+          }}
+          onJumpToTask={(id) => {
+            const task = tasks.find(t => t.id === id);
+            if (!task) return;
+            setEditingTask(task);
+            setSidebarOpen(true);
+            setSidePanel('edit');
+          }}
+          onOpenRetrospective={() => setRetroOpen(true)}
+        />
+
         {/* Schedule density — at-a-glance week load */}
         <ScheduleDensityBar
           blocks={blocks}
@@ -467,6 +505,36 @@ const Index = () => {
         onCancel={cancelPending}
       />
 
+      {/* Weekly retrospective — opens via ⌘K or InsightsBanner footer */}
+      <WeeklyRetrospectiveSheet
+        open={retroOpen}
+        onClose={() => setRetroOpen(false)}
+        energy={insights.energy}
+        capacity={insights.capacity}
+        dayShape={insights.dayShape}
+        missed={insights.missed}
+        digest={insights.digest}
+        onApplyEnergy={() => {
+          applyLearnedDeepWindow();
+          toast.success('Deep window updated', { description: insights.energy.reason, duration: 4500 });
+        }}
+        onApplyCapacity={() => {
+          applyLearnedCap();
+          toast.success(`Daily cap set to ${insights.capacity.suggested_cap_hours}h`, {
+            description: insights.capacity.reason,
+            duration: 4500,
+          });
+        }}
+        onJumpToTask={(id) => {
+          const task = tasks.find(t => t.id === id);
+          if (!task) return;
+          setEditingTask(task);
+          setSidebarOpen(true);
+          setSidePanel('edit');
+          setRetroOpen(false);
+        }}
+      />
+
       {/* Command palette — ⌘K to open */}
       <CommandPalette
         open={paletteOpen}
@@ -478,6 +546,20 @@ const Index = () => {
         atRiskCount={summary.atRiskTasks}
         droppedCount={summary.droppedTasks}
         todayMode={getDayMode(format(new Date(), 'yyyy-MM-dd'))}
+        energyInsight={insights.energy}
+        capacityInsight={insights.capacity}
+        onApplyLearnedEnergy={() => {
+          applyLearnedDeepWindow();
+          toast.success('Deep window updated', { description: insights.energy.reason, duration: 4500 });
+        }}
+        onApplyLearnedCapacity={() => {
+          applyLearnedCap();
+          toast.success(`Daily cap set to ${insights.capacity.suggested_cap_hours}h`, {
+            description: insights.capacity.reason,
+            duration: 4500,
+          });
+        }}
+        onOpenRetrospective={() => setRetroOpen(true)}
         onPreviewRebuild={previewRebuild}
         onApplyPending={handleApply}
         onCancelPending={cancelPending}

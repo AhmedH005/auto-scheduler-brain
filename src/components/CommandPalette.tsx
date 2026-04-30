@@ -34,8 +34,11 @@ import {
   Flame,
   RotateCcw,
   FastForward,
+  Sunrise,
+  TrendingDown,
+  TrendingUp,
 } from 'lucide-react';
-import { Task, ScheduledBlock } from '@/types/task';
+import { Task, ScheduledBlock, EnergySuggestion, CapacitySuggestion } from '@/types/task';
 import { format } from 'date-fns';
 
 interface CommandPaletteProps {
@@ -49,6 +52,8 @@ interface CommandPaletteProps {
   atRiskCount: number;
   droppedCount: number;
   todayMode: 'easy' | 'normal' | 'heavy';
+  energyInsight: EnergySuggestion;
+  capacityInsight: CapacitySuggestion;
   // Actions
   onPreviewRebuild: () => void;
   onApplyPending: () => void;
@@ -56,6 +61,9 @@ interface CommandPaletteProps {
   onUndo: () => void;
   onReplanFromNow: () => void;
   onSetTodayMode: (mode: 'easy' | 'normal' | 'heavy') => void;
+  onApplyLearnedEnergy: () => void;
+  onApplyLearnedCapacity: () => void;
+  onOpenRetrospective: () => void;
   onAddTask: () => void;
   onOpenSettings: () => void;
   onOpenIntegrations: () => void;
@@ -75,12 +83,17 @@ export function CommandPalette({
   atRiskCount,
   droppedCount,
   todayMode,
+  energyInsight,
+  capacityInsight,
   onPreviewRebuild,
   onApplyPending,
   onCancelPending,
   onUndo,
   onReplanFromNow,
   onSetTodayMode,
+  onApplyLearnedEnergy,
+  onApplyLearnedCapacity,
+  onOpenRetrospective,
   onAddTask,
   onOpenSettings,
   onOpenIntegrations,
@@ -275,6 +288,54 @@ export function CommandPalette({
                       onSelect={run(onPreviewRebuild)}
                     />
                   )}
+                </CommandGroup>
+
+                {/* Learning insights — only render when there's actionable signal */}
+                {(energyInsight.shift_recommended ||
+                  capacityInsight.reduce_recommended ||
+                  capacityInsight.raise_recommended) && (
+                  <CommandGroup heading="Learned about you">
+                    {energyInsight.shift_recommended && (
+                      <CommandItem
+                        icon={Sunrise}
+                        label={`Apply learned deep window (${pad(energyInsight.suggested_start_hour)}:00–${pad(energyInsight.suggested_end_hour)}:00)`}
+                        description={energyInsight.reason}
+                        keywords={['energy', 'window', 'deep', 'peak', 'morning', 'curve', 'apply']}
+                        tone="green"
+                        onSelect={run(onApplyLearnedEnergy)}
+                      />
+                    )}
+                    {capacityInsight.reduce_recommended && (
+                      <CommandItem
+                        icon={TrendingDown}
+                        label={`Lower daily cap to ${capacityInsight.suggested_cap_hours}h`}
+                        description={capacityInsight.reason}
+                        keywords={['cap', 'lower', 'capacity', 'reduce', 'easier']}
+                        tone="amber"
+                        onSelect={run(onApplyLearnedCapacity)}
+                      />
+                    )}
+                    {capacityInsight.raise_recommended && (
+                      <CommandItem
+                        icon={TrendingUp}
+                        label={`Raise daily cap to ${capacityInsight.suggested_cap_hours}h`}
+                        description={capacityInsight.reason}
+                        keywords={['cap', 'raise', 'capacity', 'increase', 'more']}
+                        tone="green"
+                        onSelect={run(onApplyLearnedCapacity)}
+                      />
+                    )}
+                  </CommandGroup>
+                )}
+
+                <CommandGroup heading="Reflect">
+                  <CommandItem
+                    icon={Sparkles}
+                    label="Weekly retrospective"
+                    description="See what the system learned about you this week"
+                    keywords={['retrospective', 'weekly', 'review', 'insights', 'patterns', 'reflection']}
+                    onSelect={run(onOpenRetrospective)}
+                  />
                 </CommandGroup>
 
                 {/* Task actions */}
@@ -473,3 +534,5 @@ function taskDescription(task: Task): string {
   if (task.deadline) parts.push(`due ${format(new Date(task.deadline), 'MMM d')}`);
   return parts.join(' · ');
 }
+
+const pad = (n: number) => String(n).padStart(2, '0');

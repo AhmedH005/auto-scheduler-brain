@@ -11,10 +11,16 @@ import {
   DurationSuggestion,
   DailyOverride,
   DailyOverrides,
+  CompletionEvent,
 } from '@/types/task';
 import { rebuildSchedule } from '@/engine/scheduler';
 import { diffSchedules, explainDiff } from '@/engine/diff';
 import { recordCompletion, suggestDuration } from '@/engine/adaptive-duration';
+import {
+  buildCompletionEvent,
+  appendCompletion,
+  buildAllInsights,
+} from '@/engine/learning';
 import { format } from 'date-fns';
 import { supabase } from '@/lib/supabase';
 
@@ -24,6 +30,7 @@ const SETTINGS_KEY = 'axis_settings';
 const UNDO_STACK_KEY = 'axis_undo_stack';
 const DURATION_LOG_KEY = 'axis_duration_log';
 const DAILY_OVERRIDES_KEY = 'axis_daily_overrides';
+const COMPLETION_LOG_KEY = 'axis_completion_log';
 
 const UNDO_STACK_MAX = 10;
 
@@ -220,6 +227,10 @@ export function useScheduler() {
   const [dailyOverrides, setDailyOverrides] = useState<DailyOverrides>(() =>
     loadFromStorage<DailyOverrides>(DAILY_OVERRIDES_KEY, {})
   );
+  // CompletionEvent log — every done/partial/skipped feeds the learning layer.
+  const [completionLog, setCompletionLog] = useState<CompletionEvent[]>(() =>
+    loadFromStorage<CompletionEvent[]>(COMPLETION_LOG_KEY, [])
+  );
 
   // Pending state — set by previewRebuild, cleared by applyPending / cancelPending
   const [pendingResult, setPendingResult] = useState<RebuildResult | null>(null);
@@ -304,6 +315,7 @@ export function useScheduler() {
   useEffect(() => { if (hydrated) saveToStorage(UNDO_STACK_KEY, undoStack); }, [undoStack, hydrated]);
   useEffect(() => { if (hydrated) saveToStorage(DURATION_LOG_KEY, durationLog); }, [durationLog, hydrated]);
   useEffect(() => { if (hydrated) saveToStorage(DAILY_OVERRIDES_KEY, dailyOverrides); }, [dailyOverrides, hydrated]);
+  useEffect(() => { if (hydrated) saveToStorage(COMPLETION_LOG_KEY, completionLog); }, [completionLog, hydrated]);
 
   // Persist to Supabase (when user is logged in and data is hydrated)
   // Sequential: tasks must be written before blocks to avoid FK violations.
@@ -536,8 +548,12 @@ export function useScheduler() {
   /** Mark a block as done. The block stays where it is (preserved on
    *  rebuild) and contributes actual_minutes to the parent task's consumed
    *  total — so a 30-min completion of a 60-min block leaves 30 min owed,
-   *  which the next rebuild will roll forward. Also seeds the duration log
-   *  for adaptive duration learning. */
+   *  which the next rebuild will roll forward.
+   *
+   *  Two side-effect logs are written:
+   *    durationLog     — per-task duration accuracy for the suggestDuration hint
+   *    completionLog   — full event with hour-of-day + day-of-week for the
+   *                      learning layer (energy curve, capacity, day shape) */
   const markBlockDone = useCallback(
     (blockId: string, actualMinutes?: number) => {
       const block = blocks.find(b => b.id === blockId);
@@ -546,6 +562,7 @@ export function useScheduler() {
       const scheduledMinutes =
         (new Date(block.end_time).getTime() - new Date(block.start_time).getTime()) / 60000;
       const reportedMinutes = actualMinutes ?? Math.max(scheduledMinutes, 0);
+      const isPartial = reportedMinutes < scheduledMinutes - 1; // 1-min jitter buffer
 
       pushUndoSnapshot('Mark done');
       updateBlocksSafely(prev =>
@@ -556,8 +573,8 @@ export function useScheduler() {
         )
       );
 
-      // Log to the duration history so adaptive-duration learns from this.
       if (task) {
+        // Adaptive duration log (per-task estimate vs actual)
         setDurationLog(prev =>
           recordCompletion(prev, {
             task_id: task.id,
@@ -566,6 +583,21 @@ export function useScheduler() {
             actual_minutes: reportedMinutes,
             energy_intensity: task.energy_intensity,
           })
+        );
+
+        // Behavioral completion log (drives learning.ts)
+        setCompletionLog(prev =>
+          appendCompletion(
+            prev,
+            buildCompletionEvent({
+              block_id: blockId,
+              task,
+              scheduled_start: block.start_time,
+              scheduled_end: block.end_time,
+              status: isPartial ? 'partial' : 'done',
+              actual_minutes: reportedMinutes,
+            })
+          )
         );
       }
     },
@@ -589,16 +621,36 @@ export function useScheduler() {
   );
 
   /** Mark a block as skipped (something came up, didn't get done). Removes
-   *  the block; the next rebuild will re-place the full task duration. */
+   *  the block; the next rebuild will re-place the full task duration. Also
+   *  logs a 'skipped' completion event so the learning layer can detect
+   *  recurring miss patterns. */
   const markBlockSkipped = useCallback(
     async (blockId: string) => {
+      const block = blocks.find(b => b.id === blockId);
+      const task = block ? tasks.find(t => t.id === block.task_id) : undefined;
+
       pushUndoSnapshot('Skip block');
       updateBlocksSafely(prev => prev.filter(b => b.id !== blockId));
       if (userIdRef.current) {
         await supabase.from('scheduled_blocks').delete().eq('id', blockId).eq('user_id', userIdRef.current);
       }
+
+      if (block && task) {
+        setCompletionLog(prev =>
+          appendCompletion(
+            prev,
+            buildCompletionEvent({
+              block_id: blockId,
+              task,
+              scheduled_start: block.start_time,
+              scheduled_end: block.end_time,
+              status: 'skipped',
+            })
+          )
+        );
+      }
     },
-    [pushUndoSnapshot, updateBlocksSafely]
+    [blocks, tasks, pushUndoSnapshot, updateBlocksSafely]
   );
 
   /** "Things came up — push everything pending forward."
@@ -675,6 +727,31 @@ export function useScheduler() {
     };
   }, [tasks, blocks, lastResult]);
 
+  // ─────────────────────────────────────────────────────────────────────
+  //  Learning layer — insights derived from completionLog
+  // ─────────────────────────────────────────────────────────────────────
+
+  const insights = useMemo(
+    () => buildAllInsights(completionLog, tasks, settings),
+    [completionLog, tasks, settings]
+  );
+
+  /** Apply the learned deep-window suggestion to user settings. */
+  const applyLearnedDeepWindow = useCallback(() => {
+    const e = insights.energy;
+    if (!e.shift_recommended) return;
+    const start = `${String(e.suggested_start_hour).padStart(2, '0')}:00`;
+    const end = `${String(e.suggested_end_hour).padStart(2, '0')}:00`;
+    setSettings(prev => ({ ...prev, deep_window_start: start, deep_window_end: end }));
+  }, [insights.energy]);
+
+  /** Apply the learned daily-cap suggestion. */
+  const applyLearnedCap = useCallback(() => {
+    const c = insights.capacity;
+    if (!c.reduce_recommended && !c.raise_recommended) return;
+    setSettings(prev => ({ ...prev, max_total_hours_per_day: c.suggested_cap_hours }));
+  }, [insights.capacity]);
+
   return {
     // State
     tasks,
@@ -715,6 +792,11 @@ export function useScheduler() {
     // Day mode
     setDayMode,
     getDayMode,
+    // Learning insights — read these to render banners / retrospective
+    completionLog,
+    insights,
+    applyLearnedDeepWindow,
+    applyLearnedCap,
     // Settings
     updateSettings,
   };

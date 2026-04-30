@@ -186,3 +186,117 @@ export interface RescheduleSnapshot {
   taken_at: string; // ISO
   label: string; // e.g. "Before rebuild at 14:32" or "Before moving 'Thesis ch.3'"
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+//  Learning layer — observations the system uses to model THIS user
+// ─────────────────────────────────────────────────────────────────────────
+
+export type CompletionStatus = 'done' | 'skipped' | 'partial';
+
+/** One observation per completed / skipped / partially-completed block.
+ *  Day-of-week and hour-of-day are extracted at write time so that the
+ *  inference functions don't have to re-parse dates on every read.
+ *
+ *  This is the user's behavioral history — the input to every learning
+ *  function in src/engine/learning.ts. */
+export interface CompletionEvent {
+  id: string;
+  task_id: string;
+  task_title: string;
+  /** Scheduled time the block held — what the engine TRIED to give the user. */
+  scheduled_start: string; // ISO
+  scheduled_end: string;   // ISO
+  scheduled_minutes: number;
+  energy_intensity: EnergyIntensity;
+  status: CompletionStatus;
+  /** Minutes actually spent. Set for status='done' and 'partial'. Undefined for 'skipped'. */
+  actual_minutes?: number;
+  /** When the user marked the block — not when it was scheduled. */
+  recorded_at: string; // ISO
+  /** 0=Sunday ... 6=Saturday — extracted from scheduled_start. */
+  day_of_week: number;
+  /** 0..23 — extracted from scheduled_start. */
+  hour_of_day: number;
+}
+
+export type Confidence = 'high' | 'medium' | 'low' | 'none';
+
+export interface EnergySuggestion {
+  /** Currently configured deep window. */
+  current_start_hour: number;
+  current_end_hour: number;
+  /** Suggested deep window inferred from completion history. */
+  suggested_start_hour: number;
+  suggested_end_hour: number;
+  /** True when current ≠ suggested AND confidence > 'low'. */
+  shift_recommended: boolean;
+  confidence: Confidence;
+  /** How many deep completions informed this. */
+  sample_size: number;
+  /** Plain-English summary like "You complete deep work most reliably 9–11am." */
+  reason: string;
+}
+
+export interface CapacitySuggestion {
+  current_cap_hours: number;
+  /** What the data says is realistic. */
+  suggested_cap_hours: number;
+  /** Mean completion rate at the current cap. */
+  completion_rate_at_current: number;
+  /** Mean completion rate at the suggested cap. */
+  completion_rate_at_suggested: number;
+  reduce_recommended: boolean;
+  raise_recommended: boolean;
+  confidence: Confidence;
+  sample_size: number;
+  reason: string;
+}
+
+export interface DayShapeStat {
+  day_of_week: number; // 0..6
+  day_label: string; // "Mon", "Tue", ...
+  completion_rate: number; // 0..1
+  scheduled_hours_avg: number;
+  sample_size: number;
+}
+
+export interface DayShape {
+  /** Per-DOW completion stats, ordered Mon..Sun for ergonomic display. */
+  stats: DayShapeStat[];
+  /** DOW indices where completion is meaningfully below average. */
+  weak_days: number[];
+  /** DOW indices where completion is meaningfully above average. */
+  strong_days: number[];
+  confidence: Confidence;
+  sample_size: number;
+}
+
+export interface MissedPattern {
+  task_id: string;
+  task_title: string;
+  missed_count: number;
+  total_attempts: number;
+  miss_rate: number; // 0..1
+  /** The hour-of-day this task is most often scheduled at, if there's a pattern. */
+  most_common_hour: number | null;
+  /** Suggested action — usually "try a different slot" or "lower priority". */
+  suggestion: string;
+}
+
+export interface WeeklyDigest {
+  /** Window the digest covers, ISO dates inclusive. */
+  start_date: string;
+  end_date: string;
+  scheduled_minutes: number;
+  completed_minutes: number;
+  skipped_minutes: number;
+  completion_rate: number; // completed / scheduled
+  best_day: { day_of_week: number; rate: number } | null;
+  worst_day: { day_of_week: number; rate: number } | null;
+  /** Top 3 tasks by overrun (actual > estimated). */
+  worst_overruns: Array<{ task_title: string; overrun_pct: number; samples: number }>;
+  /** Top 3 tasks completing on-budget — positive reinforcement. */
+  best_estimates: Array<{ task_title: string; samples: number }>;
+  /** Sentence-style summary for the user. */
+  headline: string;
+}
