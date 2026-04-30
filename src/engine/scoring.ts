@@ -47,3 +47,88 @@ export function calculateScore(task: Task, slotHour?: number): number {
 export function sortByScore(tasks: Task[]): Task[] {
   return [...tasks].sort((a, b) => calculateScore(b) - calculateScore(a));
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+//  Score breakdown — the "why is this block here?" surface
+// ─────────────────────────────────────────────────────────────────────────
+
+export interface ScoreComponent {
+  /** Raw [0..1] component value before weighting. */
+  value: number;
+  /** Weight applied. */
+  weight: number;
+  /** Human-readable explanation of THIS task's value. */
+  reason: string;
+}
+
+export interface ScoreBreakdown {
+  urgency: ScoreComponent;
+  importance: ScoreComponent;
+  energy: ScoreComponent | null; // null when slotHour unknown
+  total: number;
+}
+
+function urgencyReason(task: Task): string {
+  if (!task.deadline) return 'No deadline — baseline urgency';
+  const daysUntil = Math.ceil(
+    (new Date(task.deadline).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+  );
+  if (daysUntil < 0) return `Overdue by ${Math.abs(daysUntil)} day${Math.abs(daysUntil) > 1 ? 's' : ''}`;
+  if (daysUntil === 0) return 'Due today';
+  if (daysUntil === 1) return 'Due tomorrow';
+  return `Due in ${daysUntil} day${daysUntil > 1 ? 's' : ''}`;
+}
+
+function importanceReason(task: Task): string {
+  return `Priority ${task.priority} of 5`;
+}
+
+function energyReason(task: Task, slotHour: number): string {
+  const taskE = task.energy_intensity ?? 'moderate';
+  const slotE = slotEnergyLevel(slotHour);
+  if (taskE === slotE) return `${taskE} task in ${slotE} slot — perfect match`;
+  const distance = Math.abs(
+    (['deep', 'moderate', 'light'] as const).indexOf(taskE) -
+    (['deep', 'moderate', 'light'] as const).indexOf(slotE)
+  );
+  if (distance === 1) return `${taskE} task in ${slotE} slot — adjacent zone`;
+  return `${taskE} task in ${slotE} slot — mismatched zone`;
+}
+
+export function scoreBreakdown(task: Task, slotHour?: number): ScoreBreakdown {
+  const urgency = urgencyScore(task);
+  const importance = importanceScore(task);
+  const energy = slotHour !== undefined
+    ? energyMatchScore(task.energy_intensity ?? 'moderate', slotHour)
+    : null;
+
+  const urgencyComp: ScoreComponent = {
+    value: urgency,
+    weight: URGENCY_WEIGHT,
+    reason: urgencyReason(task),
+  };
+  const importanceComp: ScoreComponent = {
+    value: importance,
+    weight: IMPORTANCE_WEIGHT,
+    reason: importanceReason(task),
+  };
+  const energyComp: ScoreComponent | null = energy !== null && slotHour !== undefined
+    ? {
+        value: energy,
+        weight: ENERGY_WEIGHT,
+        reason: energyReason(task, slotHour),
+      }
+    : null;
+
+  const total =
+    urgencyComp.value * urgencyComp.weight +
+    importanceComp.value * importanceComp.weight +
+    (energyComp ? energyComp.value * energyComp.weight : 0);
+
+  return {
+    urgency: urgencyComp,
+    importance: importanceComp,
+    energy: energyComp,
+    total,
+  };
+}

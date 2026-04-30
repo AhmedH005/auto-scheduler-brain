@@ -1,11 +1,14 @@
 import React, { useMemo, useCallback, useState, useRef, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { ScheduledBlock, Task, UserSettings } from '@/types/task';
 import { format, startOfWeek, addDays, addWeeks, isToday } from 'date-fns';
 import { Lock, Unlock, ChevronLeft, ChevronRight, Trash2, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { getTaskColor } from '@/lib/taskColors';
 import { GoogleIcon } from '@/components/GoogleIcon';
 import { useTranslation } from 'react-i18next';
+import { scoreBreakdown } from '@/engine/scoring';
 
 interface WeekViewProps {
   blocks: ScheduledBlock[];
@@ -447,6 +450,7 @@ export function WeekView({
                 )}
 
                 {/* Blocks (includes external calendar events) */}
+                <AnimatePresence mode="popLayout">
                 {dayBlocks.map(block => {
                   const task = taskMap.get(block.task_id);
                   const posStyle = getBlockStyle(block);
@@ -471,10 +475,30 @@ export function WeekView({
                     width: `calc(${widthPct}% - 4px)`,
                   };
 
-                  return (
-                    <div
+                  // Stable layout id ONLY for flexible single-execution non-synced tasks.
+                  // Anything else (fixed/anchor/synced/split/recurring) uses no layoutId
+                  // so framer-motion treats the element as fresh and just fades.
+                  const flyId =
+                    !isSynced &&
+                    !!task &&
+                    task.scheduling_mode === 'flexible' &&
+                    task.execution_style === 'single'
+                      ? `fly-${block.task_id}-${block.instance_date || 'one'}`
+                      : undefined;
+
+                  const blockEl = (
+                    <motion.div
                       key={block.id}
+                      layoutId={isDragging ? undefined : flyId}
                       data-block={block.id}
+                      initial={{ opacity: 0, scale: 0.94 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.94 }}
+                      transition={{
+                        layout: { type: 'spring', stiffness: 360, damping: 30 },
+                        opacity: { duration: 0.18 },
+                        scale: { duration: 0.18, ease: [0.2, 0, 0, 1] },
+                      }}
                       className={`absolute rounded-sm border-l-2 px-1.5 py-0.5 z-10 group transition-colors select-none ${
                         isDragging ? 'opacity-80 shadow-lg cursor-grabbing z-30' : 'cursor-grab hover:brightness-110'
                       } ${isSelected ? 'ring-1 ring-primary' : ''}`}
@@ -560,14 +584,160 @@ export function WeekView({
                         className="absolute bottom-0 inset-x-0 h-2 cursor-s-resize opacity-0 group-hover:opacity-100 bg-foreground/10 rounded-b-sm"
                         onMouseDown={e => handleMouseDown(e, block.id, 'resize')}
                       />
-                    </div>
+                    </motion.div>
+                  );
+
+                  // Wrap with hover tooltip showing the score breakdown / placement reason.
+                  // Skip while dragging or selected (popover is the active surface then).
+                  if (isDragging || isSelected) return blockEl;
+
+                  return (
+                    <Tooltip key={block.id} delayDuration={400}>
+                      <TooltipTrigger asChild>{blockEl}</TooltipTrigger>
+                      <TooltipContent
+                        side="right"
+                        align="start"
+                        className="bg-popover/95 backdrop-blur border-border shadow-xl px-3 py-2 max-w-[260px]"
+                      >
+                        <BlockExplanation block={block} task={task} />
+                      </TooltipContent>
+                    </Tooltip>
                   );
                 })}
+                </AnimatePresence>
               </div>
             );
           })}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+//  BlockExplanation — "why is this block here?" tooltip body
+// ─────────────────────────────────────────────────────────────────────────
+
+function BlockExplanation({ block, task }: { block: ScheduledBlock; task: Task | undefined }) {
+  if (!task) {
+    return <p className="text-[11px] font-mono text-muted-foreground">Block has no task reference.</p>;
+  }
+
+  const isSynced = !!task.sync_source;
+  const startHour = new Date(block.start_time).getHours();
+
+  if (isSynced) {
+    return (
+      <div className="space-y-1">
+        <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/65">
+          External event
+        </p>
+        <p className="text-xs font-medium text-foreground leading-snug">{task.title}</p>
+        <p className="text-[10px] font-mono text-muted-foreground/75">
+          From Google Calendar — read-only. AXIS plans around it but never modifies it.
+        </p>
+      </div>
+    );
+  }
+
+  if (task.scheduling_mode === 'fixed') {
+    return (
+      <div className="space-y-1">
+        <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/65">
+          Fixed
+        </p>
+        <p className="text-xs font-medium text-foreground leading-snug">{task.title}</p>
+        <p className="text-[10px] font-mono text-muted-foreground/75">
+          Locked to this exact time. Won't move on rebuild.
+        </p>
+      </div>
+    );
+  }
+
+  if (task.scheduling_mode === 'anchor') {
+    return (
+      <div className="space-y-1">
+        <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/65">
+          Anchor
+        </p>
+        <p className="text-xs font-medium text-foreground leading-snug">{task.title}</p>
+        <p className="text-[10px] font-mono text-muted-foreground/75">
+          Anchored to {task.window_start}–{task.window_end}.{' '}
+          {task.is_recurring ? 'Recurs every weekday.' : 'One-shot anchor.'}
+        </p>
+      </div>
+    );
+  }
+
+  if (block.locked) {
+    return (
+      <div className="space-y-1">
+        <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/65">
+          Locked by you
+        </p>
+        <p className="text-xs font-medium text-foreground leading-snug">{task.title}</p>
+        <p className="text-[10px] font-mono text-muted-foreground/75">
+          Manual lock — engine won't move this on rebuild. Click the block and Unlock to release.
+        </p>
+      </div>
+    );
+  }
+
+  // Flexible / engine-placed → show the deterministic score breakdown
+  const breakdown = scoreBreakdown(task, startHour);
+
+  return (
+    <div className="space-y-1.5">
+      <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/65">
+        Why this block is here
+      </p>
+      <p className="text-xs font-medium text-foreground leading-snug">{task.title}</p>
+
+      <div className="space-y-1 pt-1 border-t border-border/60">
+        <ScoreRow
+          label="urgency × 3"
+          value={breakdown.urgency.value * breakdown.urgency.weight}
+          reason={breakdown.urgency.reason}
+        />
+        <ScoreRow
+          label="importance × 2"
+          value={breakdown.importance.value * breakdown.importance.weight}
+          reason={breakdown.importance.reason}
+        />
+        {breakdown.energy && (
+          <ScoreRow
+            label="energy-match × 1.5"
+            value={breakdown.energy.value * breakdown.energy.weight}
+            reason={breakdown.energy.reason}
+          />
+        )}
+        <div className="flex items-center justify-between pt-1 border-t border-border/40">
+          <span className="text-[10px] font-mono uppercase tracking-wider text-primary">
+            score
+          </span>
+          <span className="text-[11px] font-mono tabular-nums font-semibold text-primary">
+            {breakdown.total.toFixed(2)}
+          </span>
+        </div>
+      </div>
+
+      <p className="text-[9px] font-mono text-muted-foreground/55 pt-1 leading-relaxed">
+        Higher score = picked first when slots are scarce. Deterministic. No ML.
+      </p>
+    </div>
+  );
+}
+
+function ScoreRow({ label, value, reason }: { label: string; value: number; reason: string }) {
+  return (
+    <div className="flex items-start justify-between gap-3">
+      <div className="min-w-0 flex-1">
+        <p className="text-[10px] font-mono text-foreground/85">{label}</p>
+        <p className="text-[9px] font-mono text-muted-foreground/65 leading-tight">{reason}</p>
+      </div>
+      <span className="text-[10px] font-mono tabular-nums text-foreground/70 shrink-0">
+        {value.toFixed(2)}
+      </span>
     </div>
   );
 }
