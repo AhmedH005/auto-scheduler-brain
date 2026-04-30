@@ -388,6 +388,27 @@ export function WeekView({
                 className={`flex-1 border-l border-border relative ${isToday(day) ? 'bg-primary/[0.02]' : ''}`}
                 onDoubleClick={e => handleColumnDoubleClick(e, dayIndex)}
               >
+                {/* Energy-zone gradient — morning deep / afternoon moderate / evening light.
+                    Maps directly to the engine's slotEnergyLevel() so the user sees the
+                    cognitive demand profile they're scheduling against. Very low opacity
+                    so blocks remain the visual focal point. */}
+                <div
+                  className="absolute inset-x-0 pointer-events-none"
+                  style={{
+                    top: `${(6 - START_HOUR) * HOUR_HEIGHT}px`,
+                    height: `${(22 - 6) * HOUR_HEIGHT}px`,
+                    background: `linear-gradient(
+                      to bottom,
+                      hsl(var(--energy-deep) / 0.06) 0%,
+                      hsl(var(--energy-deep) / 0.05) ${((12 - 6) / (22 - 6)) * 100}%,
+                      hsl(var(--energy-moderate) / 0.05) ${((12 - 6) / (22 - 6)) * 100}%,
+                      hsl(var(--energy-moderate) / 0.04) ${((17 - 6) / (22 - 6)) * 100}%,
+                      hsl(var(--energy-light) / 0.04) ${((17 - 6) / (22 - 6)) * 100}%,
+                      hsl(var(--energy-light) / 0.03) 100%
+                    )`,
+                  }}
+                />
+
                 {/* Hour lines */}
                 {Array.from({ length: TOTAL_HOURS }, (_, i) => (
                   <div key={i} className="absolute w-full border-t border-grid-line" style={{ top: `${i * HOUR_HEIGHT}px` }} />
@@ -397,11 +418,15 @@ export function WeekView({
                   <div key={`half-${i}`} className="absolute w-full border-t border-grid-line/50 border-dashed" style={{ top: `${i * HOUR_HEIGHT + HOUR_HEIGHT / 2}px` }} />
                 ))}
 
-                {/* Deep window overlay */}
+                {/* Deep window overlay — sharper accent on the user's chosen deep hours */}
                 {deepStart >= START_HOUR && deepEnd <= END_HOUR && (
                   <div
-                    className="absolute inset-x-0 bg-primary/[0.04] border-l-2 border-primary/20"
-                    style={{ top: `${deepTop}px`, height: `${deepHeight}px` }}
+                    className="absolute inset-x-0 border-l-2 border-primary/30 pointer-events-none"
+                    style={{
+                      top: `${deepTop}px`,
+                      height: `${deepHeight}px`,
+                      background: 'hsl(var(--primary) / 0.04)',
+                    }}
                   />
                 )}
 

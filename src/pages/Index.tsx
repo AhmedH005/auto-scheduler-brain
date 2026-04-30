@@ -11,6 +11,8 @@ import { CalendarIntegrationsPanel } from '@/components/CalendarIntegrationsPane
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 import { RebuildPreviewSheet } from '@/components/RebuildPreviewSheet';
+import { CommandPalette } from '@/components/CommandPalette';
+import { ScheduleDensityBar } from '@/components/ScheduleDensityBar';
 import { Task } from '@/types/task';
 import { useExternalCalendars } from '@/hooks/useExternalCalendars';
 import { Button } from '@/components/ui/button';
@@ -60,6 +62,7 @@ const Index = () => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [quickAddDate, setQuickAddDate] = useState<string | undefined>();
   const [quickAddTime, setQuickAddTime] = useState<string | undefined>();
+  const [paletteOpen, setPaletteOpen] = useState(false);
   const lastResultIdRef = useRef<string | null>(null);
 
   // First-load auto rebuild — silent, no preview interruption
@@ -97,23 +100,76 @@ const Index = () => {
     }
   }, [lastResult]);
 
-  // Cmd/Ctrl+Z = undo
+  // Global keyboard shortcuts
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const isUndo = (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z' && !e.shiftKey;
-      if (!isUndo) return;
-      // Don't intercept while typing in form fields
       const target = e.target as HTMLElement;
-      if (target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.isContentEditable) return;
-      e.preventDefault();
-      if (canUndo) {
-        undo();
-        toast.success('Reverted last schedule change');
+      const inField =
+        target?.tagName === 'INPUT' ||
+        target?.tagName === 'TEXTAREA' ||
+        target?.isContentEditable;
+
+      const meta = e.metaKey || e.ctrlKey;
+      const key = e.key.toLowerCase();
+
+      // ⌘K = command palette (works even inside fields)
+      if (meta && key === 'k') {
+        e.preventDefault();
+        setPaletteOpen(true);
+        return;
+      }
+
+      // ⌘Z = undo (skip when typing)
+      if (meta && key === 'z' && !e.shiftKey) {
+        if (inField) return;
+        e.preventDefault();
+        if (canUndo) {
+          undo();
+          toast.success('Reverted last schedule change');
+        }
+        return;
+      }
+
+      // Single-letter shortcuts (skip when typing or palette open)
+      if (inField || paletteOpen || meta || e.shiftKey || e.altKey) return;
+
+      switch (key) {
+        case 'r':
+          e.preventDefault();
+          previewRebuild();
+          return;
+        case 'a':
+          e.preventDefault();
+          clearQuickAdd();
+          setSidebarOpen(true);
+          setSidePanel('add');
+          return;
+        case 't':
+          e.preventDefault();
+          setSelectedDate(new Date());
+          setCalendarView('day');
+          return;
+        case '1':
+          e.preventDefault();
+          setCalendarView('day');
+          return;
+        case '2':
+          e.preventDefault();
+          setCalendarView('week');
+          return;
+        case '3':
+          e.preventDefault();
+          setCalendarView('month');
+          return;
+        case '/':
+          e.preventDefault();
+          setPaletteOpen(true);
+          return;
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [canUndo, undo]);
+  }, [canUndo, undo, previewRebuild, paletteOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleRebuild = () => {
     previewRebuild();
@@ -178,6 +234,22 @@ const Index = () => {
                 <LanguageSwitcher />
               </div>
             </div>
+          </div>
+
+          {/* Search / command palette trigger */}
+          <div className="px-2 pt-2 pb-1">
+            <button
+              onClick={() => setPaletteOpen(true)}
+              className="w-full group flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-secondary/40 hover:bg-secondary/70 border border-border hover:border-primary/30 transition-all"
+              aria-label="Open command palette (⌘K)"
+            >
+              <span className="text-[10px] font-mono text-muted-foreground/55 group-hover:text-muted-foreground transition-colors flex-1 text-left">
+                Search or run a command…
+              </span>
+              <kbd className="text-[9px] font-mono text-muted-foreground/55 px-1.5 py-0.5 rounded border border-border bg-background/60">
+                ⌘K
+              </kbd>
+            </button>
           </div>
 
           <div className="px-2 py-1.5 flex gap-1 border-b border-border">
@@ -304,6 +376,16 @@ const Index = () => {
 
       {/* Calendar area */}
       <div className="flex-1 min-w-0 flex flex-col">
+        {/* Schedule density — at-a-glance week load */}
+        <ScheduleDensityBar
+          blocks={blocks}
+          settings={settings}
+          onDayClick={(date) => {
+            setSelectedDate(date);
+            if (calendarView === 'month') setCalendarView('day');
+          }}
+        />
+
         {/* View switcher */}
         <div className="shrink-0 flex items-center gap-1 px-3 py-1.5 border-b border-border bg-background">
           {([
@@ -363,6 +445,51 @@ const Index = () => {
         tasks={tasks}
         onApply={handleApply}
         onCancel={cancelPending}
+      />
+
+      {/* Command palette — ⌘K to open */}
+      <CommandPalette
+        open={paletteOpen}
+        onOpenChange={setPaletteOpen}
+        tasks={tasks}
+        blocks={blocks}
+        pendingExists={pendingResult !== null}
+        canUndo={canUndo}
+        atRiskCount={summary.atRiskTasks}
+        droppedCount={summary.droppedTasks}
+        onPreviewRebuild={previewRebuild}
+        onApplyPending={handleApply}
+        onCancelPending={cancelPending}
+        onUndo={() => {
+          undo();
+          toast.success('Reverted last schedule change');
+        }}
+        onAddTask={() => {
+          clearQuickAdd();
+          setSidebarOpen(true);
+          setSidePanel('add');
+        }}
+        onOpenSettings={() => {
+          setSidebarOpen(true);
+          setSidePanel('settings');
+        }}
+        onOpenIntegrations={() => {
+          setSidebarOpen(true);
+          setSidePanel('integrations');
+        }}
+        onSwitchView={setCalendarView}
+        onJumpToToday={() => {
+          setSelectedDate(new Date());
+          setCalendarView('day');
+        }}
+        onJumpToTask={(id) => {
+          const task = tasks.find(t => t.id === id);
+          if (!task) return;
+          setEditingTask(task);
+          setSidebarOpen(true);
+          setSidePanel('edit');
+        }}
+        onToggleSidebar={() => setSidebarOpen(s => !s)}
       />
     </div>
   );

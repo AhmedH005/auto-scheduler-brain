@@ -1,6 +1,7 @@
+import { motion } from 'framer-motion';
 import { Task } from '@/types/task';
 import { calculateScore } from '@/engine/scoring';
-import { Trash2, Clock, Zap, Shield, Pin, Calendar } from 'lucide-react';
+import { Trash2, Clock, Zap, Shield, Pin, Calendar, Sparkles, Plus } from 'lucide-react';
 import { getTaskColor } from '@/lib/taskColors';
 import { GoogleIcon } from '@/components/GoogleIcon';
 import { useTranslation } from 'react-i18next';
@@ -18,10 +19,48 @@ export function TaskList({ tasks, onEdit, onDelete }: TaskListProps) {
 
   if (sorted.length === 0) {
     return (
-      <div className="text-center py-10">
-        <div className="text-muted-foreground font-mono text-sm">{t('taskList.noTasks')}</div>
-        <div className="text-muted-foreground/50 font-mono text-xs mt-1.5">{t('taskList.clickToAdd')}</div>
-      </div>
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: [0.2, 0, 0, 1] }}
+        className="px-2 py-8 text-center"
+      >
+        {/* Layered glyph — three concentric pulsing rings echoing the energy palette */}
+        <div className="relative w-16 h-16 mx-auto mb-5">
+          <motion.div
+            className="absolute inset-0 rounded-full"
+            style={{ background: 'hsl(var(--energy-deep) / 0.18)' }}
+            animate={{ scale: [1, 1.15, 1], opacity: [0.6, 0.3, 0.6] }}
+            transition={{ duration: 3.2, repeat: Infinity, ease: 'easeInOut' }}
+          />
+          <motion.div
+            className="absolute inset-2 rounded-full"
+            style={{ background: 'hsl(var(--energy-moderate) / 0.22)' }}
+            animate={{ scale: [1, 1.1, 1], opacity: [0.5, 0.25, 0.5] }}
+            transition={{ duration: 3.2, repeat: Infinity, ease: 'easeInOut', delay: 0.5 }}
+          />
+          <motion.div
+            className="absolute inset-4 rounded-full flex items-center justify-center"
+            style={{ background: 'hsl(var(--energy-light) / 0.28)' }}
+            animate={{ scale: [1, 1.05, 1] }}
+            transition={{ duration: 3.2, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
+          >
+            <Sparkles className="w-4 h-4 text-primary" />
+          </motion.div>
+        </div>
+
+        <p className="text-sm font-sans font-medium text-foreground/85 mb-1.5 leading-snug">
+          {t('taskList.noTasks')}
+        </p>
+        <p className="text-[11px] font-mono text-muted-foreground/55 mb-5 leading-relaxed max-w-[210px] mx-auto">
+          {t('taskList.clickToAdd')}
+        </p>
+
+        <div className="flex flex-col gap-1 items-stretch text-left">
+          <EmptyHint icon={Plus} label="Add a task" shortcut="A" />
+          <EmptyHint icon={Sparkles} label="Open command palette" shortcut="⌘K" />
+        </div>
+      </motion.div>
     );
   }
 
@@ -110,6 +149,26 @@ export function TaskList({ tasks, onEdit, onDelete }: TaskListProps) {
         );
       })}
 
+    </div>
+  );
+}
+
+function EmptyHint({
+  icon: Icon,
+  label,
+  shortcut,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  shortcut: string;
+}) {
+  return (
+    <div className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-secondary/30 border border-border/60">
+      <Icon className="w-3 h-3 text-muted-foreground/50" />
+      <span className="text-[11px] font-mono text-muted-foreground/70 flex-1">{label}</span>
+      <kbd className="text-[9px] font-mono text-muted-foreground/55 px-1.5 py-0.5 rounded border border-border bg-background/60">
+        {shortcut}
+      </kbd>
     </div>
   );
 }
