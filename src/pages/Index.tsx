@@ -21,6 +21,7 @@ import {
   CalendarDays, Calendar, LayoutGrid, Undo2, AlertTriangle, AlertOctagon,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { format } from 'date-fns';
 import { summarizeRebuild } from '@/engine/diff';
 
 type SidePanel = 'tasks' | 'add' | 'edit' | 'settings' | 'integrations' | null;
@@ -35,6 +36,8 @@ const Index = () => {
     previewRebuild, applyPending, cancelPending, rebuild, undo,
     pendingResult, pendingDiff, lastResult, canUndo, summary,
     getDurationSuggestion,
+    markBlockDone, markBlockReopen, markBlockSkipped, replanFromNow,
+    setDayMode, getDayMode, dailyOverrides,
     updateSettings, importSyncedTasks,
   } = useScheduler();
 
@@ -380,6 +383,7 @@ const Index = () => {
         <ScheduleDensityBar
           blocks={blocks}
           settings={settings}
+          dailyOverrides={dailyOverrides}
           onDayClick={(date) => {
             setSelectedDate(date);
             if (calendarView === 'month') setCalendarView('day');
@@ -425,6 +429,22 @@ const Index = () => {
               onLockBlock={lockBlock} onUnlockBlock={unlockBlock}
               onDeleteBlock={deleteBlock} onQuickAdd={handleQuickAdd}
               onEditTask={t => { setEditingTask(t); setSidebarOpen(true); setSidePanel('edit'); }}
+              onMarkDone={(id, mins) => {
+                if (mins === -1) {
+                  markBlockReopen(id);
+                  toast.success('Reopened — block is pending again');
+                } else {
+                  markBlockDone(id, mins);
+                  toast.success('Marked done', {
+                    description: 'Adaptive duration learned from this completion.',
+                    duration: 3000,
+                  });
+                }
+              }}
+              onMarkSkipped={(id) => {
+                markBlockSkipped(id);
+                toast.success('Skipped — will be replanned on next rebuild', { duration: 3000 });
+              }}
             />
           )}
           {calendarView === 'month' && (
@@ -457,12 +477,35 @@ const Index = () => {
         canUndo={canUndo}
         atRiskCount={summary.atRiskTasks}
         droppedCount={summary.droppedTasks}
+        todayMode={getDayMode(format(new Date(), 'yyyy-MM-dd'))}
         onPreviewRebuild={previewRebuild}
         onApplyPending={handleApply}
         onCancelPending={cancelPending}
         onUndo={() => {
           undo();
           toast.success('Reverted last schedule change');
+        }}
+        onReplanFromNow={() => {
+          replanFromNow();
+          toast.message('Replanning from now', {
+            description: 'Past pending blocks cleared — preview opens with the new layout.',
+            duration: 3500,
+          });
+        }}
+        onSetTodayMode={(mode) => {
+          const today = format(new Date(), 'yyyy-MM-dd');
+          setDayMode(today, mode);
+          toast.success(
+            mode === 'easy'
+              ? "Today's cap lowered — easy day"
+              : mode === 'heavy'
+              ? "Today's cap raised — heavy day"
+              : "Today reset to normal cap",
+            {
+              description: 'Click Rebuild to see the schedule honor the new cap.',
+              duration: 3500,
+            }
+          );
         }}
         onAddTask={() => {
           clearQuickAdd();

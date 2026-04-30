@@ -9,6 +9,8 @@ import {
   RescheduleSnapshot,
   DurationLog,
   DurationSuggestion,
+  DailyOverride,
+  DailyOverrides,
 } from '@/types/task';
 import { rebuildSchedule } from '@/engine/scheduler';
 import { diffSchedules, explainDiff } from '@/engine/diff';
@@ -21,6 +23,7 @@ const BLOCKS_KEY = 'axis_blocks';
 const SETTINGS_KEY = 'axis_settings';
 const UNDO_STACK_KEY = 'axis_undo_stack';
 const DURATION_LOG_KEY = 'axis_duration_log';
+const DAILY_OVERRIDES_KEY = 'axis_daily_overrides';
 
 const UNDO_STACK_MAX = 10;
 
@@ -214,6 +217,9 @@ export function useScheduler() {
   const [durationLog, setDurationLog] = useState<DurationLog[]>(() =>
     loadFromStorage<DurationLog[]>(DURATION_LOG_KEY, [])
   );
+  const [dailyOverrides, setDailyOverrides] = useState<DailyOverrides>(() =>
+    loadFromStorage<DailyOverrides>(DAILY_OVERRIDES_KEY, {})
+  );
 
   // Pending state — set by previewRebuild, cleared by applyPending / cancelPending
   const [pendingResult, setPendingResult] = useState<RebuildResult | null>(null);
@@ -297,6 +303,7 @@ export function useScheduler() {
   useEffect(() => { if (hydrated) saveToStorage(SETTINGS_KEY, settings); }, [settings, hydrated]);
   useEffect(() => { if (hydrated) saveToStorage(UNDO_STACK_KEY, undoStack); }, [undoStack, hydrated]);
   useEffect(() => { if (hydrated) saveToStorage(DURATION_LOG_KEY, durationLog); }, [durationLog, hydrated]);
+  useEffect(() => { if (hydrated) saveToStorage(DAILY_OVERRIDES_KEY, dailyOverrides); }, [dailyOverrides, hydrated]);
 
   // Persist to Supabase (when user is logged in and data is hydrated)
   // Sequential: tasks must be written before blocks to avoid FK violations.
@@ -421,11 +428,14 @@ export function useScheduler() {
   const previewRebuild = useCallback(() => {
     const activeTasks = tasks.filter(t => t.status === 'active');
     const allTaskIds = new Set(activeTasks.map(t => t.id));
-    const rawLocked = blocks.filter(b => b.locked && allTaskIds.has(b.task_id));
+    // Preserve locks AND completions — see rebuildSchedule.
+    const rawPreserved = blocks.filter(
+      b => (b.locked || !!b.completed_at) && allTaskIds.has(b.task_id)
+    );
 
-    // Deduplicate overlapping locked blocks (defensive — guards against bad data).
-    const deduped: typeof rawLocked = [];
-    for (const block of rawLocked) {
+    // Deduplicate overlapping preserved blocks (defensive — guards against bad data).
+    const deduped: typeof rawPreserved = [];
+    for (const block of rawPreserved) {
       const start = new Date(block.start_time).getTime();
       const end = new Date(block.end_time).getTime();
       const conflicts = deduped.some(b => {
@@ -436,14 +446,14 @@ export function useScheduler() {
       if (!conflicts) deduped.push(block);
     }
 
-    const result = rebuildSchedule(activeTasks, deduped, settings);
+    const result = rebuildSchedule(activeTasks, deduped, settings, dailyOverrides);
     const proposed = normalizeBlocks(result.blocks);
     const diff = explainDiff(diffSchedules(blocks, proposed, activeTasks), result, activeTasks);
 
     setPendingResult({ ...result, blocks: proposed });
     setPendingDiff(diff);
     return { result: { ...result, blocks: proposed }, diff };
-  }, [tasks, blocks, settings]);
+  }, [tasks, blocks, settings, dailyOverrides]);
 
   /** Commit the pending rebuild. Pushes the previous schedule to undo stack. */
   const applyPending = useCallback(() => {
@@ -466,10 +476,13 @@ export function useScheduler() {
   const rebuild = useCallback((opts: { silent?: boolean } = {}) => {
     const activeTasks = tasks.filter(t => t.status === 'active');
     const allTaskIds = new Set(activeTasks.map(t => t.id));
-    const rawLocked = blocks.filter(b => b.locked && allTaskIds.has(b.task_id));
+    // Preserve locks AND completions.
+    const rawPreserved = blocks.filter(
+      b => (b.locked || !!b.completed_at) && allTaskIds.has(b.task_id)
+    );
 
-    const deduped: typeof rawLocked = [];
-    for (const block of rawLocked) {
+    const deduped: typeof rawPreserved = [];
+    for (const block of rawPreserved) {
       const start = new Date(block.start_time).getTime();
       const end = new Date(block.end_time).getTime();
       const conflicts = deduped.some(b => {
@@ -481,11 +494,11 @@ export function useScheduler() {
     }
 
     pushUndoSnapshot(opts.silent ? 'Auto-rebuild' : `Rebuild at ${format(new Date(), 'HH:mm')}`);
-    const result = rebuildSchedule(activeTasks, deduped, settings);
+    const result = rebuildSchedule(activeTasks, deduped, settings, dailyOverrides);
     setBlocks(normalizeBlocks(result.blocks));
     setLastResult(result);
     return result;
-  }, [tasks, blocks, settings, pushUndoSnapshot]);
+  }, [tasks, blocks, settings, dailyOverrides, pushUndoSnapshot]);
 
   /** Undo the last reschedule operation. */
   const undo = useCallback(() => {
@@ -520,6 +533,126 @@ export function useScheduler() {
     [tasks]
   );
 
+  /** Mark a block as done. The block stays where it is (preserved on
+   *  rebuild) and contributes actual_minutes to the parent task's consumed
+   *  total — so a 30-min completion of a 60-min block leaves 30 min owed,
+   *  which the next rebuild will roll forward. Also seeds the duration log
+   *  for adaptive duration learning. */
+  const markBlockDone = useCallback(
+    (blockId: string, actualMinutes?: number) => {
+      const block = blocks.find(b => b.id === blockId);
+      if (!block) return;
+      const task = tasks.find(t => t.id === block.task_id);
+      const scheduledMinutes =
+        (new Date(block.end_time).getTime() - new Date(block.start_time).getTime()) / 60000;
+      const reportedMinutes = actualMinutes ?? Math.max(scheduledMinutes, 0);
+
+      pushUndoSnapshot('Mark done');
+      updateBlocksSafely(prev =>
+        prev.map(b =>
+          b.id === blockId
+            ? { ...b, completed_at: new Date().toISOString(), actual_minutes: reportedMinutes }
+            : b
+        )
+      );
+
+      // Log to the duration history so adaptive-duration learns from this.
+      if (task) {
+        setDurationLog(prev =>
+          recordCompletion(prev, {
+            task_id: task.id,
+            task_title: task.title,
+            estimated_minutes: task.total_duration,
+            actual_minutes: reportedMinutes,
+            energy_intensity: task.energy_intensity,
+          })
+        );
+      }
+    },
+    [blocks, tasks, pushUndoSnapshot, updateBlocksSafely]
+  );
+
+  /** Reopen a previously-completed block (clear completion state). */
+  const markBlockReopen = useCallback(
+    (blockId: string) => {
+      pushUndoSnapshot('Reopen block');
+      updateBlocksSafely(prev =>
+        prev.map(b => {
+          if (b.id !== blockId) return b;
+          // Drop completed_at and actual_minutes via destructure
+          const { completed_at: _c, actual_minutes: _a, ...rest } = b;
+          return rest as ScheduledBlock;
+        })
+      );
+    },
+    [pushUndoSnapshot, updateBlocksSafely]
+  );
+
+  /** Mark a block as skipped (something came up, didn't get done). Removes
+   *  the block; the next rebuild will re-place the full task duration. */
+  const markBlockSkipped = useCallback(
+    async (blockId: string) => {
+      pushUndoSnapshot('Skip block');
+      updateBlocksSafely(prev => prev.filter(b => b.id !== blockId));
+      if (userIdRef.current) {
+        await supabase.from('scheduled_blocks').delete().eq('id', blockId).eq('user_id', userIdRef.current);
+      }
+    },
+    [pushUndoSnapshot, updateBlocksSafely]
+  );
+
+  /** "Things came up — push everything pending forward."
+   *  Removes any non-locked, non-completed block whose start time is in the
+   *  past (or right now), then opens the rebuild preview. The today-clamp
+   *  in the engine ensures new placements only land at or after the
+   *  current minute. */
+  const replanFromNow = useCallback(() => {
+    const nowMs = Date.now();
+    pushUndoSnapshot('Replan from now');
+    updateBlocksSafely(prev =>
+      prev.filter(b => {
+        if (b.locked) return true;
+        if (b.completed_at) return true;
+        return new Date(b.start_time).getTime() > nowMs;
+      })
+    );
+    // Wait one tick so the cleared blocks are reflected before we preview.
+    setTimeout(() => previewRebuild(), 0);
+  }, [pushUndoSnapshot, updateBlocksSafely]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** Apply a per-day cap override. "Easy day" = 50% of normal cap (rounded
+   *  down to integer hours, min 2). "Heavy day" = +50% (max 12). Pass
+   *  mode='normal' to clear an existing override. */
+  const setDayMode = useCallback(
+    (dateStr: string, mode: 'easy' | 'normal' | 'heavy') => {
+      setDailyOverrides(prev => {
+        if (mode === 'normal') {
+          if (!prev[dateStr]) return prev;
+          const next = { ...prev };
+          delete next[dateStr];
+          return next;
+        }
+        const baseTotal = settings.max_total_hours_per_day;
+        const baseDeep = settings.max_deep_hours_per_day;
+        const factor = mode === 'easy' ? 0.5 : 1.5;
+        const override: DailyOverride = {
+          max_total_hours: Math.max(2, Math.floor(baseTotal * factor)),
+          max_deep_hours: Math.max(1, Math.floor(baseDeep * factor)),
+          label: mode,
+        };
+        return { ...prev, [dateStr]: override };
+      });
+    },
+    [settings]
+  );
+
+  const getDayMode = useCallback(
+    (dateStr: string): 'easy' | 'normal' | 'heavy' => {
+      return dailyOverrides[dateStr]?.label ?? 'normal';
+    },
+    [dailyOverrides]
+  );
+
   const getDurationSuggestion = useCallback(
     (task: Pick<Task, 'id' | 'title' | 'total_duration' | 'energy_intensity'>): DurationSuggestion => {
       return suggestDuration(task, durationLog);
@@ -552,6 +685,7 @@ export function useScheduler() {
     pendingDiff,
     lastResult,
     durationLog,
+    dailyOverrides,
     canUndo,
     undoStackSize: undoStack.length,
     // Tasks
@@ -565,15 +699,22 @@ export function useScheduler() {
     deleteBlock,
     moveBlock,
     resizeBlock,
+    markBlockDone,
+    markBlockReopen,
+    markBlockSkipped,
     // Rebuild flow
     previewRebuild,
     applyPending,
     cancelPending,
     rebuild,
+    replanFromNow,
     undo,
     // Adaptive duration
     markBlockComplete,
     getDurationSuggestion,
+    // Day mode
+    setDayMode,
+    getDayMode,
     // Settings
     updateSettings,
   };

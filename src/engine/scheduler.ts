@@ -8,6 +8,7 @@ import {
   DroppedTask,
   AtRiskTask,
   DropReason,
+  DailyOverrides,
 } from '@/types/task';
 import { expandRecurringTasks } from './recurring';
 import { calculateScore } from './scoring';
@@ -126,10 +127,18 @@ export function rebuildSchedule(
   tasks: Task[],
   lockedBlocks: ScheduledBlock[],
   settings: UserSettings = DEFAULT_SETTINGS,
+  dailyOverrides: DailyOverrides = {},
 ): RebuildResult {
   const { rangeStart, rangeEnd } = computeRange(tasks);
 
-  const results: ScheduledBlock[] = [...lockedBlocks.filter(b => b.locked)];
+  // Preserve any block that's locked OR already marked complete.
+  // Completed blocks are a record of "this happened" — the engine treats them
+  // exactly like locks for placement, but their actual_minutes (vs scheduled
+  // duration) feeds the consumed-minutes calculation for the parent instance,
+  // which is how partial completions roll forward into the next rebuild.
+  const results: ScheduledBlock[] = [
+    ...lockedBlocks.filter(b => b.locked || !!b.completed_at),
+  ];
 
   // Fixed tasks with explicit start/end datetimes get placed as locked blocks
   const fixedTaskIds = new Set<string>();
@@ -286,18 +295,23 @@ export function rebuildSchedule(
 
     const startMin = blockStart.getHours() * 60 + blockStart.getMinutes();
     const endMin = blockEnd.getHours() * 60 + blockEnd.getMinutes();
-    const duration = Math.max(endMin - startMin, 0);
+    const scheduledDuration = Math.max(endMin - startMin, 0);
 
+    // Slot reservation always uses the scheduled duration — the actual time
+    // that was held, regardless of how long the user actually spent.
     removeTimeFromSlots(state, startMin, endMin);
-    state.totalMinutesUsed += duration;
+    state.totalMinutesUsed += scheduledDuration;
 
     const task = taskMap.get(block.task_id);
-    if (task?.energy_intensity === 'deep') state.deepMinutesUsed += duration;
+    if (task?.energy_intensity === 'deep') state.deepMinutesUsed += scheduledDuration;
 
     if (task) {
+      // Consumed-minutes-toward-task uses actual_minutes when available so a
+      // 30-min completion of a 60-min block leaves 30 min still owed.
+      const consumedThis = block.actual_minutes ?? scheduledDuration;
       const instanceDate = task.is_recurring ? (block.instance_date || blockDate) : '';
       const key = getInstanceKey(task.id, instanceDate);
-      consumedMinutesByInstance.set(key, (consumedMinutesByInstance.get(key) || 0) + duration);
+      consumedMinutesByInstance.set(key, (consumedMinutesByInstance.get(key) || 0) + consumedThis);
     }
   }
 
@@ -331,7 +345,8 @@ export function rebuildSchedule(
       dayStates,
       settings,
       rangeStart,
-      rangeEndStr
+      rangeEndStr,
+      dailyOverrides
     );
 
     placedMinutesByInstance.set(key, consumed + placedHere);
@@ -427,7 +442,8 @@ function scheduleInstance(
   dayStates: Map<string, DayState>,
   settings: UserSettings,
   rangeStart: Date,
-  rangeEndStr: string
+  rangeEndStr: string,
+  dailyOverrides: DailyOverrides
 ): number {
   const { task } = instance;
   let remainingDuration = instance.remaining_duration;
@@ -468,8 +484,12 @@ function scheduleInstance(
       if (!state) continue;
       if (state.slots.length === 0) continue;
 
-      if (state.totalMinutesUsed + chunkSize > settings.max_total_hours_per_day * 60) continue;
-      if (task.energy_intensity === 'deep' && state.deepMinutesUsed + chunkSize > settings.max_deep_hours_per_day * 60) continue;
+      // Per-day caps — daily override takes precedence over the user's default.
+      const override = dailyOverrides[dateStr];
+      const dayMaxTotal = override?.max_total_hours ?? settings.max_total_hours_per_day;
+      const dayMaxDeep = override?.max_deep_hours ?? settings.max_deep_hours_per_day;
+      if (state.totalMinutesUsed + chunkSize > dayMaxTotal * 60) continue;
+      if (task.energy_intensity === 'deep' && state.deepMinutesUsed + chunkSize > dayMaxDeep * 60) continue;
 
       const slot = findSlot(state, chunkSize, task, settings);
       if (slot === null) continue;

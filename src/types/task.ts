@@ -40,6 +40,13 @@ export interface ScheduledBlock {
   locked: boolean;
   block_type: BlockType;
   instance_date: string; // yyyy-MM-dd for recurring tracking
+  /** Set when the user marks the block as done. Engine treats completed
+   *  blocks as preserved (no reschedule) and uses actual_minutes to compute
+   *  consumed time for the parent task instance. */
+  completed_at?: string;
+  /** Actual minutes the user reported spending. When omitted, the engine
+   *  falls back to the scheduled duration (end - start). */
+  actual_minutes?: number;
 }
 
 export interface UserSettings {
@@ -53,6 +60,17 @@ export interface UserSettings {
   min_chunk_size: number; // minutes
   max_chunk_size: number; // minutes
 }
+
+/** Per-day overrides. Lets a user say "today is an easy day, cap me at 4h"
+ *  without permanently changing their default cap. Keys are yyyy-MM-dd. */
+export interface DailyOverride {
+  max_total_hours?: number;
+  max_deep_hours?: number;
+  /** Friendly label shown in the UI. */
+  label?: 'easy' | 'normal' | 'heavy';
+}
+
+export type DailyOverrides = Record<string, DailyOverride>;
 
 export interface TaskInstance {
   task: Task;

@@ -262,6 +262,63 @@ describe('rebuildSchedule — recurring expansion', () => {
   });
 });
 
+describe('rebuildSchedule — completion preservation + partial roll-forward', () => {
+  it('preserves completed blocks across rebuild (treats them like locks)', () => {
+    const task = makeTask({ id: 'done-task', title: 'Done already', total_duration: 60 });
+    const completedBlock: ScheduledBlock = {
+      id: 'completed-1',
+      task_id: task.id,
+      start_time: `${offsetDate(0)}T09:00:00`,
+      end_time: `${offsetDate(0)}T10:00:00`,
+      locked: false,
+      block_type: 'focus',
+      instance_date: offsetDate(0),
+      completed_at: new Date(TODAY).toISOString(),
+      actual_minutes: 60,
+    };
+    const result = rebuildSchedule([task], [completedBlock], DEFAULT_SETTINGS);
+    const survivor = result.blocks.find(b => b.id === 'completed-1');
+    expect(survivor).toBeDefined();
+    expect(survivor!.completed_at).toBeDefined();
+  });
+
+  it('rolls partial completions forward — 30min done on a 60min block places another 30min', () => {
+    const task = makeTask({ id: 'partial', title: 'Partial work', total_duration: 60 });
+    const partialBlock: ScheduledBlock = {
+      id: 'partial-1',
+      task_id: task.id,
+      start_time: `${offsetDate(0)}T09:00:00`,
+      end_time: `${offsetDate(0)}T10:00:00`,
+      locked: false,
+      block_type: 'focus',
+      instance_date: offsetDate(0),
+      completed_at: new Date(TODAY).toISOString(),
+      actual_minutes: 30,
+    };
+    const result = rebuildSchedule([task], [partialBlock], DEFAULT_SETTINGS);
+    const taskBlocks = result.blocks.filter(b => b.task_id === task.id);
+    // Original (preserved) + a new placement of the remaining 30min
+    expect(taskBlocks.length).toBeGreaterThanOrEqual(2);
+    const newBlock = taskBlocks.find(b => b.id !== 'partial-1');
+    expect(newBlock).toBeDefined();
+    const newDur =
+      (new Date(newBlock!.end_time).getTime() - new Date(newBlock!.start_time).getTime()) / 60000;
+    expect(newDur).toBe(30);
+  });
+
+  it('honors per-day cap overrides (easy day = lower cap)', () => {
+    const tasks = Array.from({ length: 6 }, (_, i) =>
+      makeTask({ id: `t-${i}`, title: `Task ${i}`, total_duration: 60, deadline: offsetDate(0) })
+    );
+    const overrides = { [offsetDate(0)]: { max_total_hours: 2, max_deep_hours: 1, label: 'easy' as const } };
+    const result = rebuildSchedule(tasks, [], DEFAULT_SETTINGS, overrides);
+    const todayMinutes = result.blocks
+      .filter(b => !b.locked && blockDate(b) === offsetDate(0))
+      .reduce((acc, b) => acc + (new Date(b.end_time).getTime() - new Date(b.start_time).getTime()) / 60000, 0);
+    expect(todayMinutes).toBeLessThanOrEqual(2 * 60); // 2h cap, not the 8h default
+  });
+});
+
 describe('rebuildSchedule — score-driven priority', () => {
   it('higher-priority task wins the better slot when slots are scarce', () => {
     const settings: UserSettings = {

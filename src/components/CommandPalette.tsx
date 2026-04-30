@@ -30,6 +30,10 @@ import {
   Search,
   Sparkles,
   X,
+  Coffee,
+  Flame,
+  RotateCcw,
+  FastForward,
 } from 'lucide-react';
 import { Task, ScheduledBlock } from '@/types/task';
 import { format } from 'date-fns';
@@ -44,11 +48,14 @@ interface CommandPaletteProps {
   canUndo: boolean;
   atRiskCount: number;
   droppedCount: number;
+  todayMode: 'easy' | 'normal' | 'heavy';
   // Actions
   onPreviewRebuild: () => void;
   onApplyPending: () => void;
   onCancelPending: () => void;
   onUndo: () => void;
+  onReplanFromNow: () => void;
+  onSetTodayMode: (mode: 'easy' | 'normal' | 'heavy') => void;
   onAddTask: () => void;
   onOpenSettings: () => void;
   onOpenIntegrations: () => void;
@@ -67,10 +74,13 @@ export function CommandPalette({
   canUndo,
   atRiskCount,
   droppedCount,
+  todayMode,
   onPreviewRebuild,
   onApplyPending,
   onCancelPending,
   onUndo,
+  onReplanFromNow,
+  onSetTodayMode,
   onAddTask,
   onOpenSettings,
   onOpenIntegrations,
@@ -170,6 +180,14 @@ export function CommandPalette({
                     onSelect={run(onPreviewRebuild)}
                   />
 
+                  <CommandItem
+                    icon={FastForward}
+                    label="Replan from now"
+                    description="Something came up — push pending blocks forward"
+                    keywords={['replan', 'now', 'push', 'forward', 'interrupt', 'tired', 'spontaneous', 'late']}
+                    onSelect={run(onReplanFromNow)}
+                  />
+
                   {pendingExists && (
                     <>
                       <CommandItem
@@ -203,6 +221,36 @@ export function CommandPalette({
                         </>
                       }
                       onSelect={run(onUndo)}
+                    />
+                  )}
+
+                  {/* Day mode — for "I'm tired" or "I'm crushing it" days */}
+                  {todayMode !== 'easy' && (
+                    <CommandItem
+                      icon={Coffee}
+                      label="Easy day — lighten today's load"
+                      description="Halve today's daily cap. I'm tired or have something on."
+                      keywords={['easy', 'tired', 'light', 'rest', 'low', 'today']}
+                      tone="amber"
+                      onSelect={run(() => onSetTodayMode('easy'))}
+                    />
+                  )}
+                  {todayMode !== 'heavy' && (
+                    <CommandItem
+                      icon={Flame}
+                      label="Heavy day — push today's cap"
+                      description="Raise today's daily cap by 50%. I have time and energy."
+                      keywords={['heavy', 'crush', 'high', 'sprint', 'today']}
+                      onSelect={run(() => onSetTodayMode('heavy'))}
+                    />
+                  )}
+                  {todayMode !== 'normal' && (
+                    <CommandItem
+                      icon={RotateCcw}
+                      label={`Reset today to normal (currently: ${todayMode})`}
+                      description="Clear today's cap override"
+                      keywords={['normal', 'reset', 'default', 'today']}
+                      onSelect={run(() => onSetTodayMode('normal'))}
                     />
                   )}
 

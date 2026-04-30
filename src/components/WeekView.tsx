@@ -2,7 +2,7 @@ import React, { useMemo, useCallback, useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion';
 import { ScheduledBlock, Task, UserSettings } from '@/types/task';
 import { format, startOfWeek, addDays, addWeeks, isToday } from 'date-fns';
-import { Lock, Unlock, ChevronLeft, ChevronRight, Trash2, Pencil } from 'lucide-react';
+import { Lock, Unlock, ChevronLeft, ChevronRight, Trash2, Pencil, Check, SkipForward, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { getTaskColor } from '@/lib/taskColors';
@@ -21,6 +21,10 @@ interface WeekViewProps {
   onDeleteBlock: (blockId: string) => void;
   onQuickAdd: (date: string, time: string) => void;
   onEditTask?: (task: Task) => void;
+  /** Mark a block as completed. actualMinutes optional — defaults to scheduled duration. */
+  onMarkDone?: (blockId: string, actualMinutes?: number) => void;
+  /** Skip a block (something came up). Removes it; rebuild re-places the task. */
+  onMarkSkipped?: (blockId: string) => void;
 }
 
 const HOUR_HEIGHT = 60;
@@ -110,6 +114,8 @@ export function WeekView({
   onDeleteBlock,
   onQuickAdd,
   onEditTask,
+  onMarkDone,
+  onMarkSkipped,
 }: WeekViewProps) {
   const { t } = useTranslation();
   const [weekOffset, setWeekOffset] = useState(0);
@@ -475,33 +481,24 @@ export function WeekView({
                     width: `calc(${widthPct}% - 4px)`,
                   };
 
-                  // Stable layout id ONLY for flexible single-execution non-synced tasks.
-                  // Anything else (fixed/anchor/synced/split/recurring) uses no layoutId
-                  // so framer-motion treats the element as fresh and just fades.
-                  const flyId =
-                    !isSynced &&
-                    !!task &&
-                    task.scheduling_mode === 'flexible' &&
-                    task.execution_style === 'single'
-                      ? `fly-${block.task_id}-${block.instance_date || 'one'}`
-                      : undefined;
-
+                  // We tried layoutId-driven fly animations on rebuild apply, but
+                  // framer-motion's layout-measurement pass briefly captured pointer
+                  // events and made every block click feel janky. Reverted to a simple
+                  // fade/scale on enter+exit — keeps the calendar feeling alive without
+                  // fighting the drag system or the click handlers.
                   const blockEl = (
                     <motion.div
                       key={block.id}
-                      layoutId={isDragging ? undefined : flyId}
                       data-block={block.id}
-                      initial={{ opacity: 0, scale: 0.94 }}
+                      initial={{ opacity: 0, scale: 0.95 }}
                       animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.94 }}
-                      transition={{
-                        layout: { type: 'spring', stiffness: 360, damping: 30 },
-                        opacity: { duration: 0.18 },
-                        scale: { duration: 0.18, ease: [0.2, 0, 0, 1] },
-                      }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      transition={{ duration: 0.16, ease: [0.2, 0, 0, 1] }}
                       className={`absolute rounded-sm border-l-2 px-1.5 py-0.5 z-10 group transition-colors select-none ${
                         isDragging ? 'opacity-80 shadow-lg cursor-grabbing z-30' : 'cursor-grab hover:brightness-110'
-                      } ${isSelected ? 'ring-1 ring-primary' : ''}`}
+                      } ${isSelected ? 'ring-1 ring-primary' : ''} ${
+                        block.completed_at ? 'opacity-55 hover:opacity-80' : ''
+                      }`}
                       style={{ ...posStyle, ...layoutStyle, ...colorStyle }}
                       onMouseDown={e => {
                         if ((e.target as HTMLElement).closest('[data-block-popover]')) return;
@@ -516,23 +513,29 @@ export function WeekView({
                     >
                       <div className="flex items-start justify-between gap-1 h-full overflow-hidden">
                         <div className="min-w-0 flex-1">
-                          <div className="text-[10px] font-mono font-medium leading-tight truncate text-foreground">
+                          <div className={`text-[10px] font-mono font-medium leading-tight truncate text-foreground ${block.completed_at ? 'line-through decoration-emerald-400/60' : ''}`}>
                             {task?.title || 'Unknown'}
                           </div>
                           <div className="text-[9px] font-mono text-muted-foreground">
                             {format(new Date(block.start_time), 'HH:mm')}–{format(new Date(block.end_time), 'HH:mm')}
+                            {block.completed_at && block.actual_minutes !== undefined && (
+                              <span className="ml-1 text-emerald-400/80">· {Math.round(block.actual_minutes)}m done</span>
+                            )}
                           </div>
-                          {!isSynced && task?.description && (
+                          {!isSynced && task?.description && !block.completed_at && (
                             <div className="text-[9px] font-sans text-muted-foreground/70 truncate leading-tight mt-0.5">
                               {task.description}
                             </div>
                           )}
                         </div>
                         <div className="flex items-center gap-0.5 shrink-0">
+                          {block.completed_at && (
+                            <Check className="w-3 h-3 text-emerald-400" strokeWidth={2.5} />
+                          )}
                           {isSynced ? (
                             <GoogleIcon size={9} className="opacity-70" />
                           ) : (
-                            block.locked && <Lock className="w-3 h-3 text-block-locked" />
+                            block.locked && !block.completed_at && <Lock className="w-3 h-3 text-block-locked" />
                           )}
                         </div>
                       </div>
@@ -545,6 +548,56 @@ export function WeekView({
                           onMouseDown={e => e.stopPropagation()}
                         >
                           <div className="flex items-center gap-0.5 bg-card border border-border rounded-md shadow-lg px-1 py-0.5">
+                            {/* Done / Reopen — primary state action for native, non-locked-anchor blocks */}
+                            {!isSynced && task?.scheduling_mode !== 'anchor' && (
+                              <>
+                                {!block.completed_at ? (
+                                  <button
+                                    className="p-1 rounded-sm transition-colors text-[10px] font-mono flex items-center gap-1 text-emerald-400 hover:bg-emerald-500/10"
+                                    onClick={e => {
+                                      e.stopPropagation();
+                                      if (onMarkDone) onMarkDone(block.id);
+                                      setSelectedBlockId(null);
+                                    }}
+                                  >
+                                    <Check className="w-3 h-3" /><span>Done</span>
+                                  </button>
+                                ) : (
+                                  <button
+                                    className="p-1 rounded-sm transition-colors text-[10px] font-mono flex items-center gap-1 text-muted-foreground hover:bg-secondary"
+                                    onClick={e => {
+                                      e.stopPropagation();
+                                      // Reopen — clear completion + clear lock so the engine can re-place if needed
+                                      if (onMarkDone) onMarkDone(block.id, -1); // sentinel: see Index handler
+                                      setSelectedBlockId(null);
+                                    }}
+                                    title="Reopen (clear completion)"
+                                  >
+                                    <RotateCcw className="w-3 h-3" /><span>Reopen</span>
+                                  </button>
+                                )}
+                                <div className="w-px h-4 bg-border" />
+                              </>
+                            )}
+
+                            {/* Skip — pulled forward by the next rebuild */}
+                            {!isSynced && !block.completed_at && task?.scheduling_mode === 'flexible' && (
+                              <>
+                                <button
+                                  className="p-1 rounded-sm transition-colors text-[10px] font-mono flex items-center gap-1 text-amber-400 hover:bg-amber-500/10"
+                                  onClick={e => {
+                                    e.stopPropagation();
+                                    if (onMarkSkipped) onMarkSkipped(block.id);
+                                    setSelectedBlockId(null);
+                                  }}
+                                  title="Something came up — push this forward"
+                                >
+                                  <SkipForward className="w-3 h-3" /><span>Skip</span>
+                                </button>
+                                <div className="w-px h-4 bg-border" />
+                              </>
+                            )}
+
                             {onEditTask && task && (
                               <>
                                 <button

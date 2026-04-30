@@ -13,13 +13,17 @@
  */
 
 import { useMemo } from 'react';
-import { ScheduledBlock, UserSettings } from '@/types/task';
+import { ScheduledBlock, UserSettings, DailyOverrides } from '@/types/task';
 import { addDays, format, isSameDay, isToday } from 'date-fns';
 import { motion } from 'framer-motion';
+import { Coffee, Flame } from 'lucide-react';
 
 interface ScheduleDensityBarProps {
   blocks: ScheduledBlock[];
   settings: UserSettings;
+  /** Per-day cap overrides — if today is in "easy" mode, the bar uses the
+   *  override cap, not the default. */
+  dailyOverrides?: DailyOverrides;
   /** How many days to show. Defaults to 14. */
   days?: number;
   /** Called when user clicks a day. */
@@ -29,6 +33,7 @@ interface ScheduleDensityBarProps {
 export function ScheduleDensityBar({
   blocks,
   settings,
+  dailyOverrides = {},
   days = 14,
   onDayClick,
 }: ScheduleDensityBarProps) {
@@ -38,6 +43,7 @@ export function ScheduleDensityBar({
 
     return Array.from({ length: days }, (_, i) => {
       const date = addDays(start, i);
+      const dateStr = format(date, 'yyyy-MM-dd');
       const minutesUsed = blocks.reduce((acc, b) => {
         const blockStart = new Date(b.start_time);
         if (!isSameDay(blockStart, date)) return acc;
@@ -45,16 +51,21 @@ export function ScheduleDensityBar({
           (new Date(b.end_time).getTime() - blockStart.getTime()) / 60000;
         return acc + Math.max(dur, 0);
       }, 0);
-      const capMinutes = settings.max_total_hours_per_day * 60;
+      const override = dailyOverrides[dateStr];
+      const dayCapHours = override?.max_total_hours ?? settings.max_total_hours_per_day;
+      const capMinutes = dayCapHours * 60;
       const ratio = capMinutes > 0 ? minutesUsed / capMinutes : 0;
       return {
         date,
+        dateStr,
         minutesUsed,
         capMinutes,
+        capHours: dayCapHours,
         ratio,
+        mode: override?.label ?? 'normal' as const,
       };
     });
-  }, [blocks, settings.max_total_hours_per_day, days]);
+  }, [blocks, settings.max_total_hours_per_day, dailyOverrides, days]);
 
   return (
     <div className="px-3 py-2 border-b border-border bg-card/40">
@@ -90,8 +101,20 @@ export function ScheduleDensityBar({
                 transition={{ delay: i * 0.015, duration: 0.3, ease: [0.2, 0, 0, 1] }}
                 onClick={() => onDayClick?.(d.date)}
                 className={`group flex flex-col items-center gap-0.5 ${onDayClick ? 'cursor-pointer' : ''}`}
-                title={`${format(d.date, 'EEE MMM d')} — ${(d.minutesUsed / 60).toFixed(1)}h / ${settings.max_total_hours_per_day}h${d.ratio > 1 ? ' (over)' : ''}`}
+                title={`${format(d.date, 'EEE MMM d')} — ${(d.minutesUsed / 60).toFixed(1)}h / ${d.capHours}h${
+                  d.mode !== 'normal' ? ` · ${d.mode}` : ''
+                }${d.ratio > 1 ? ' (over)' : ''}`}
               >
+                {/* Mode glyph above the bar */}
+                <span className="h-2.5 flex items-center justify-center">
+                  {d.mode === 'easy' && (
+                    <Coffee className="w-2.5 h-2.5 text-amber-400" />
+                  )}
+                  {d.mode === 'heavy' && (
+                    <Flame className="w-2.5 h-2.5 text-orange-400" />
+                  )}
+                </span>
+
                 {/* Bar */}
                 <div className="relative w-[12px] sm:w-[16px] h-7 rounded-sm bg-secondary/40 overflow-hidden">
                   {tier !== 'empty' && (
@@ -106,8 +129,12 @@ export function ScheduleDensityBar({
                       className={`absolute bottom-0 left-0 right-0 ${tierBg[tier]} group-hover:brightness-125 transition-all`}
                     />
                   )}
-                  {/* Cap line */}
-                  <div className="absolute left-0 right-0 h-px bg-border/60" style={{ bottom: '83.3%' }} />
+                  {/* Cap line — at 100% relative to the day's effective cap (so easy days
+                      cap at 50% / 4h shows the line at the right place, not always 83.3%). */}
+                  <div
+                    className="absolute left-0 right-0 h-px bg-border/60"
+                    style={{ bottom: `${Math.min(100, (1 / 1.2) * 100)}%` }}
+                  />
                 </div>
 
                 {/* Day label */}
