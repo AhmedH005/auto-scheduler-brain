@@ -47,7 +47,19 @@ export interface ScheduledBlock {
   /** Actual minutes the user reported spending. When omitted, the engine
    *  falls back to the scheduled duration (end - start). */
   actual_minutes?: number;
+  /** How we know this block was completed. The learning engine weights
+   *  events by this so passive inference doesn't override explicit signal:
+   *    confirmed       — user explicitly tapped Done (weight 1.0)
+   *    inferred-active — block ended AND user was active in AXIS during it (0.8)
+   *    assumed         — block end-time passed, user didn't skip (0.5)
+   *  Undefined means the block isn't completed yet (still pending). */
+  completion_confidence?: CompletionConfidence;
+  /** When auto-mark assumes a block done, we accumulate "AXIS-tab visible
+   *  minutes" during the block window. The user can audit this. */
+  visible_minutes?: number;
 }
+
+export type CompletionConfidence = 'confirmed' | 'inferred-active' | 'assumed';
 
 export interface UserSettings {
   working_hours_start: string; // HH:MM
@@ -217,6 +229,8 @@ export interface CompletionEvent {
   day_of_week: number;
   /** 0..23 — extracted from scheduled_start. */
   hour_of_day: number;
+  /** How we know this happened. Inference weights events by confidence. */
+  confidence: CompletionConfidence;
 }
 
 export type Confidence = 'high' | 'medium' | 'low' | 'none';

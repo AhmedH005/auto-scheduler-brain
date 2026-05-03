@@ -12,6 +12,7 @@ import {
   DailyOverride,
   DailyOverrides,
   CompletionEvent,
+  CompletionConfidence,
 } from '@/types/task';
 import { rebuildSchedule } from '@/engine/scheduler';
 import { diffSchedules, explainDiff } from '@/engine/diff';
@@ -553,39 +554,61 @@ export function useScheduler() {
    *  Two side-effect logs are written:
    *    durationLog     — per-task duration accuracy for the suggestDuration hint
    *    completionLog   — full event with hour-of-day + day-of-week for the
-   *                      learning layer (energy curve, capacity, day shape) */
+   *                      learning layer (energy curve, capacity, day shape)
+   *
+   *  `confidence` defaults to 'confirmed' (user explicitly tapped). The
+   *  auto-assume tick passes 'assumed' or 'inferred-active' instead so
+   *  the learning engine can downweight passive observations. */
   const markBlockDone = useCallback(
-    (blockId: string, actualMinutes?: number) => {
+    (
+      blockId: string,
+      actualMinutes?: number,
+      opts: { confidence?: CompletionConfidence; silent?: boolean } = {}
+    ) => {
       const block = blocks.find(b => b.id === blockId);
       if (!block) return;
+      // Don't double-mark — but DO upgrade an assumed/inferred block to
+      // confirmed if the user is explicitly tapping Done after auto-mark.
+      if (block.completed_at && opts.confidence !== 'confirmed') return;
+
       const task = tasks.find(t => t.id === block.task_id);
       const scheduledMinutes =
         (new Date(block.end_time).getTime() - new Date(block.start_time).getTime()) / 60000;
       const reportedMinutes = actualMinutes ?? Math.max(scheduledMinutes, 0);
       const isPartial = reportedMinutes < scheduledMinutes - 1; // 1-min jitter buffer
+      const confidence: CompletionConfidence = opts.confidence ?? 'confirmed';
 
-      pushUndoSnapshot('Mark done');
+      if (!opts.silent) pushUndoSnapshot('Mark done');
       updateBlocksSafely(prev =>
         prev.map(b =>
           b.id === blockId
-            ? { ...b, completed_at: new Date().toISOString(), actual_minutes: reportedMinutes }
+            ? {
+                ...b,
+                completed_at: new Date().toISOString(),
+                actual_minutes: reportedMinutes,
+                completion_confidence: confidence,
+              }
             : b
         )
       );
 
       if (task) {
-        // Adaptive duration log (per-task estimate vs actual)
-        setDurationLog(prev =>
-          recordCompletion(prev, {
-            task_id: task.id,
-            task_title: task.title,
-            estimated_minutes: task.total_duration,
-            actual_minutes: reportedMinutes,
-            energy_intensity: task.energy_intensity,
-          })
-        );
+        // Adaptive duration log (per-task estimate vs actual). Skip for
+        // 'assumed' confidence since we don't actually know how long it
+        // took — would pollute the duration suggestions.
+        if (confidence !== 'assumed') {
+          setDurationLog(prev =>
+            recordCompletion(prev, {
+              task_id: task.id,
+              task_title: task.title,
+              estimated_minutes: task.total_duration,
+              actual_minutes: reportedMinutes,
+              energy_intensity: task.energy_intensity,
+            })
+          );
+        }
 
-        // Behavioral completion log (drives learning.ts)
+        // Behavioral completion log (drives learning.ts) — confidence-tagged
         setCompletionLog(prev =>
           appendCompletion(
             prev,
@@ -596,6 +619,7 @@ export function useScheduler() {
               scheduled_end: block.end_time,
               status: isPartial ? 'partial' : 'done',
               actual_minutes: reportedMinutes,
+              confidence,
             })
           )
         );
@@ -611,13 +635,127 @@ export function useScheduler() {
       updateBlocksSafely(prev =>
         prev.map(b => {
           if (b.id !== blockId) return b;
-          // Drop completed_at and actual_minutes via destructure
-          const { completed_at: _c, actual_minutes: _a, ...rest } = b;
+          // Drop completion fields via destructure
+          const {
+            completed_at: _c,
+            actual_minutes: _a,
+            completion_confidence: _cc,
+            ...rest
+          } = b;
           return rest as ScheduledBlock;
         })
       );
     },
     [pushUndoSnapshot, updateBlocksSafely]
+  );
+
+  // ─────────────────────────────────────────────────────────────────────
+  //  Passive completion: visibility accumulator + auto-assume tick
+  //
+  //  Two timers run while the app is mounted:
+  //    1. Every 30s, if AXIS is the visible tab, add 0.5 min to each
+  //       currently-active block's visible-minutes counter (ref-based to
+  //       avoid re-renders).
+  //    2. Every 60s, find blocks whose end_time has passed without
+  //       explicit completion → auto-mark with confidence:
+  //         'inferred-active' if visible-minutes ≥ 30% of duration
+  //         'assumed' otherwise
+  //
+  //  Confirmed taps from the popover override these (markBlockDone with
+  //  confidence='confirmed' upgrades the entry).
+  // ─────────────────────────────────────────────────────────────────────
+
+  const visibleMinutesRef = useRef<Map<string, number>>(new Map());
+
+  // Visibility accumulator
+  useEffect(() => {
+    const accumulate = () => {
+      if (typeof document === 'undefined' || document.visibilityState !== 'visible') return;
+      const now = Date.now();
+      for (const b of blocks) {
+        if (b.completed_at) continue;
+        const start = new Date(b.start_time).getTime();
+        const end = new Date(b.end_time).getTime();
+        if (start <= now && now <= end) {
+          const cur = visibleMinutesRef.current.get(b.id) ?? 0;
+          visibleMinutesRef.current.set(b.id, cur + 0.5);
+        }
+      }
+    };
+    const interval = setInterval(accumulate, 30_000);
+    return () => clearInterval(interval);
+  }, [blocks]);
+
+  // Auto-assume tick — marks expired blocks as done with the right confidence
+  useEffect(() => {
+    const sweep = () => {
+      const now = Date.now();
+      const candidates: Array<{
+        blockId: string;
+        scheduledMinutes: number;
+        visibleMinutes: number;
+        confidence: CompletionConfidence;
+      }> = [];
+
+      for (const b of blocks) {
+        if (b.completed_at) continue;
+        if (b.locked) continue; // anchor / fixed / user-locked: don't auto-mark
+        const start = new Date(b.start_time);
+        const end = new Date(b.end_time);
+        if (end.getTime() > now) continue; // not over yet
+        if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) continue;
+
+        const scheduledMinutes = Math.max(0, (end.getTime() - start.getTime()) / 60000);
+        if (scheduledMinutes <= 0) continue;
+
+        const visibleMinutes = visibleMinutesRef.current.get(b.id) ?? 0;
+        const visibleRatio = visibleMinutes / scheduledMinutes;
+        const confidence: CompletionConfidence =
+          visibleRatio >= 0.3 ? 'inferred-active' : 'assumed';
+
+        candidates.push({ blockId: b.id, scheduledMinutes, visibleMinutes, confidence });
+      }
+
+      if (candidates.length === 0) return;
+
+      // Mark each — silent (no undo snapshot per block — a sweep can mark
+      // many at once, would flood the undo stack) and update visible_minutes.
+      for (const c of candidates) {
+        markBlockDone(c.blockId, c.scheduledMinutes, { confidence: c.confidence, silent: true });
+      }
+      // Also annotate visible_minutes on the block — the FloatingFinishedPill
+      // surfaces this so the user can audit "you were on AXIS for 22 of
+      // those 60 min" before confirming.
+      updateBlocksSafely(prev =>
+        prev.map(b => {
+          const c = candidates.find(x => x.blockId === b.id);
+          return c ? { ...b, visible_minutes: c.visibleMinutes } : b;
+        })
+      );
+    };
+
+    // Run once on mount (catches blocks that ended while user was offline)
+    sweep();
+    const interval = setInterval(sweep, 60_000);
+    return () => clearInterval(interval);
+  }, [blocks, markBlockDone, updateBlocksSafely]);
+
+  /** Confirm an auto-marked block (upgrade confidence to 'confirmed').
+   *  This is what the FloatingFinishedPill calls when user taps ✓. */
+  const confirmAutoMarked = useCallback(
+    (blockId: string) => {
+      const block = blocks.find(b => b.id === blockId);
+      if (!block || !block.completed_at) return;
+      // Already confirmed — no-op
+      if (block.completion_confidence === 'confirmed') return;
+
+      const scheduledMinutes =
+        (new Date(block.end_time).getTime() - new Date(block.start_time).getTime()) / 60000;
+      const reported = block.actual_minutes ?? scheduledMinutes;
+      // Re-mark with confirmed confidence — this also re-logs the duration
+      markBlockDone(blockId, reported, { confidence: 'confirmed', silent: true });
+    },
+    [blocks, markBlockDone]
   );
 
   /** Mark a block as skipped (something came up, didn't get done). Removes
@@ -779,6 +917,7 @@ export function useScheduler() {
     markBlockDone,
     markBlockReopen,
     markBlockSkipped,
+    confirmAutoMarked,
     // Rebuild flow
     previewRebuild,
     applyPending,

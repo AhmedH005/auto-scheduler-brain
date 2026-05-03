@@ -15,6 +15,7 @@ import { CommandPalette } from '@/components/CommandPalette';
 import { ScheduleDensityBar } from '@/components/ScheduleDensityBar';
 import { InsightsBanner } from '@/components/InsightsBanner';
 import { WeeklyRetrospectiveSheet } from '@/components/WeeklyRetrospectiveSheet';
+import { FloatingFinishedPill } from '@/components/FloatingFinishedPill';
 import { Task } from '@/types/task';
 import { useExternalCalendars } from '@/hooks/useExternalCalendars';
 import { Button } from '@/components/ui/button';
@@ -38,7 +39,7 @@ const Index = () => {
     previewRebuild, applyPending, cancelPending, rebuild, undo,
     pendingResult, pendingDiff, lastResult, canUndo, summary,
     getDurationSuggestion,
-    markBlockDone, markBlockReopen, markBlockSkipped, replanFromNow,
+    markBlockDone, markBlockReopen, markBlockSkipped, confirmAutoMarked, replanFromNow,
     setDayMode, getDayMode, dailyOverrides,
     insights, applyLearnedDeepWindow, applyLearnedCap,
     updateSettings, importSyncedTasks,
@@ -503,6 +504,20 @@ const Index = () => {
         tasks={tasks}
         onApply={handleApply}
         onCancel={cancelPending}
+      />
+
+      {/* Floating "confirm what happened" pill — only renders when there
+          are auto-marked blocks from today/yesterday that the user hasn't
+          confirmed yet. Zero obligation — close anytime, assumed events
+          still feed the engine at half weight. */}
+      <FloatingFinishedPill
+        blocks={blocks}
+        tasks={tasks}
+        onConfirm={confirmAutoMarked}
+        onMarkSkipped={(id) => {
+          markBlockSkipped(id);
+          toast.success('Marked as skipped — engine has clean signal', { duration: 2500 });
+        }}
       />
 
       {/* Weekly retrospective — opens via ⌘K or InsightsBanner footer */}

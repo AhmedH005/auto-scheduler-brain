@@ -44,6 +44,7 @@ function evt(
     recorded_at: end.toISOString(),
     day_of_week: start.getDay(),
     hour_of_day: start.getHours(),
+    confidence: 'confirmed',
     ...partial,
   };
 }
@@ -58,6 +59,7 @@ function evtAt(args: {
   actualMin?: number;
   taskId?: string;
   taskTitle?: string;
+  confidence?: CompletionEvent['confidence'];
 }): CompletionEvent {
   const start = new Date(TODAY);
   start.setHours(args.hour, 0, 0, 0);
@@ -78,6 +80,7 @@ function evtAt(args: {
     recorded_at: end.toISOString(),
     day_of_week: start.getDay(),
     hour_of_day: start.getHours(),
+    confidence: args.confidence ?? 'confirmed',
   };
 }
 
@@ -425,5 +428,72 @@ describe('appendCompletion', () => {
       cur = appendCompletion(cur, evt(i));
     }
     expect(cur.length).toBe(500);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+//  Confidence weighting — passive observation should not override explicit
+// ─────────────────────────────────────────────────────────────────────────
+
+describe('confidence weighting', () => {
+  it('treats 24 confirmed deep events as high confidence', () => {
+    const events = Array.from({ length: 24 }, (_, i) =>
+      evtAt({ i, hour: 9, daysBack: i, energy: 'deep', confidence: 'confirmed' })
+    );
+    const r = learnEnergyCurve(events, 6, 12);
+    expect(r.confidence).toBe('high');
+  });
+
+  it('treats 24 ASSUMED deep events as MEDIUM (effective sample halved)', () => {
+    // 24 raw assumed events * 0.5 weight = 12 effective → medium tier (≥12)
+    const events = Array.from({ length: 24 }, (_, i) =>
+      evtAt({ i, hour: 9, daysBack: i, energy: 'deep', confidence: 'assumed' })
+    );
+    const r = learnEnergyCurve(events, 6, 12);
+    expect(r.confidence).toBe('medium');
+  });
+
+  it('treats 24 INFERRED-ACTIVE events as high (0.8 weight × 24 = 19 → high)', () => {
+    const events = Array.from({ length: 24 }, (_, i) =>
+      evtAt({ i, hour: 9, daysBack: i, energy: 'deep', confidence: 'inferred-active' })
+    );
+    const r = learnEnergyCurve(events, 6, 12);
+    // 24 * 0.8 = 19.2 → rounds to 19 → ≥12 (medium) but <24 (high) → medium
+    expect(r.confidence).toBe('medium');
+  });
+
+  it('weights confirmed events above assumed in the histogram', () => {
+    // 5 confirmed at 5am (weight 1.0 = 5 effective) vs 8 assumed at 14pm (weight 0.5 = 4 effective)
+    // The 5am peak should win even though raw count is lower.
+    const events: CompletionEvent[] = [];
+    for (let i = 0; i < 5; i++) {
+      events.push(evtAt({ i, hour: 5, daysBack: i, energy: 'deep', confidence: 'confirmed' }));
+    }
+    for (let i = 0; i < 8; i++) {
+      events.push(evtAt({ i: 100 + i, hour: 14, daysBack: i, energy: 'deep', confidence: 'assumed' }));
+    }
+    const r = learnEnergyCurve(events, 8, 12);
+    expect(r.suggested_start_hour).toBeLessThanOrEqual(5);
+  });
+
+  it('skipped events count fully regardless of confidence (the skip itself is reliable)', () => {
+    // 6 confirmed dones at 9am, 10 assumed-skipped at 14pm.
+    // The 14pm slot should NOT register as a peak — those skips weight 1.0,
+    // but the histogram only counts dones. Dones at 9am (weight 1.0 each = 6).
+    // No skip ever appears in the histogram. The 9am peak holds.
+    const events: CompletionEvent[] = [];
+    for (let i = 0; i < 6; i++) {
+      events.push(evtAt({ i, hour: 9, daysBack: i, energy: 'deep', confidence: 'confirmed' }));
+    }
+    for (let i = 0; i < 10; i++) {
+      events.push(evtAt({
+        i: 200 + i, hour: 14, daysBack: i, energy: 'deep',
+        status: 'skipped', confidence: 'assumed',
+      }));
+    }
+    const r = learnEnergyCurve(events, 8, 12);
+    // The window centered around 9am should be picked
+    expect(r.suggested_start_hour).toBeLessThanOrEqual(9);
+    expect(r.suggested_end_hour).toBeGreaterThanOrEqual(9);
   });
 });

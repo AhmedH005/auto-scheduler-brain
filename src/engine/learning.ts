@@ -22,6 +22,7 @@
 import {
   Task,
   CompletionEvent,
+  CompletionConfidence,
   EnergySuggestion,
   CapacitySuggestion,
   DayShape,
@@ -39,6 +40,24 @@ const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 // ─────────────────────────────────────────────────────────────────────────
 
 const isDone = (e: CompletionEvent) => e.status === 'done' || e.status === 'partial';
+
+/**
+ * Weight an event by how reliably we know it happened. Confirmed taps go
+ * full strength; passive inference is downweighted because we might be
+ * wrong. Skipped events count fully — that signal IS reliable (the user
+ * told us so).
+ */
+export function confidenceWeight(c: CompletionConfidence | undefined): number {
+  switch (c) {
+    case 'confirmed': return 1.0;
+    case 'inferred-active': return 0.8;
+    case 'assumed': return 0.5;
+    default: return 0.5;
+  }
+}
+
+const eventWeight = (e: CompletionEvent): number =>
+  e.status === 'skipped' ? 1.0 : confidenceWeight(e.confidence);
 
 function scoreConfidence(samples: number, low: number, medium: number, high: number): Confidence {
   if (samples >= high) return 'high';
@@ -75,7 +94,12 @@ export function learnEnergyCurve(
   windowHours = 4
 ): EnergySuggestion {
   const deepDone = events.filter(e => e.energy_intensity === 'deep' && isDone(e));
-  const sample_size = deepDone.length;
+
+  // Effective sample size weighs assumed events less. With only assumed
+  // events, 12 raw observations count as 6 effective — which is why
+  // confirmed/active completions matter more than passive ticks.
+  const effective_sample = deepDone.reduce((a, e) => a + eventWeight(e), 0);
+  const sample_size = Math.round(effective_sample);
   const confidence = scoreConfidence(sample_size, 6, 12, 24);
 
   // No useful signal — keep the current window
@@ -92,11 +116,12 @@ export function learnEnergyCurve(
     };
   }
 
-  // Hourly completion histogram (0..23)
+  // Hourly completion histogram (0..23) — weighted by confidence so
+  // confirmed events pull the curve harder than assumed ones.
   const hourly = new Array<number>(24).fill(0);
   for (const e of deepDone) {
     const h = Math.max(0, Math.min(23, e.hour_of_day));
-    hourly[h] += 1;
+    hourly[h] += eventWeight(e);
   }
 
   // Sliding window: find contiguous windowHours-block with max sum
@@ -507,11 +532,16 @@ export function buildCompletionEvent(
     scheduled_end: string;
     status: CompletionEvent['status'];
     actual_minutes?: number;
+    confidence?: CompletionConfidence;
   }
 ): CompletionEvent {
   const start = new Date(args.scheduled_start);
   const end = new Date(args.scheduled_end);
   const scheduled_minutes = Math.max(0, (end.getTime() - start.getTime()) / 60000);
+  // Skipped events are by definition explicit — the user told us. Done
+  // events default to 'confirmed' if a confidence isn't supplied (back-compat).
+  const confidence: CompletionConfidence =
+    args.confidence ?? (args.status === 'skipped' ? 'confirmed' : 'confirmed');
   return {
     id: `evt-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
     task_id: args.task.id,
@@ -525,6 +555,7 @@ export function buildCompletionEvent(
     recorded_at: new Date().toISOString(),
     day_of_week: start.getDay(),
     hour_of_day: start.getHours(),
+    confidence,
   };
 }
 

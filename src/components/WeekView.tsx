@@ -530,7 +530,18 @@ export function WeekView({
                         </div>
                         <div className="flex items-center gap-0.5 shrink-0">
                           {block.completed_at && (
-                            <Check className="w-3 h-3 text-emerald-400" strokeWidth={2.5} />
+                            <Check
+                              className={
+                                block.completion_confidence === 'confirmed'
+                                  ? 'w-3 h-3 text-emerald-400'
+                                  : block.completion_confidence === 'inferred-active'
+                                  ? 'w-3 h-3 text-emerald-400/75'
+                                  : 'w-3 h-3 text-emerald-400/45' // assumed
+                              }
+                              strokeWidth={
+                                block.completion_confidence === 'confirmed' ? 2.5 : 2
+                              }
+                            />
                           )}
                           {isSynced ? (
                             <GoogleIcon size={9} className="opacity-70" />
