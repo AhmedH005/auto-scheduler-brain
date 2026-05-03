@@ -87,22 +87,32 @@ export function TaskList({ tasks, onEdit, onDelete }: TaskListProps) {
         return (
           <div
             key={task.id}
-            className="group flex items-start gap-2.5 px-2.5 py-2 rounded-md hover:bg-secondary/80 transition-colors cursor-pointer border border-transparent hover:border-border"
+            className="group flex items-start gap-3 px-2.5 py-2.5 rounded-md hover:bg-secondary/60 transition-colors cursor-pointer"
             onClick={() => onEdit(task)}
           >
-            <div className="w-2 h-2 rounded-full shrink-0 mt-1.5" style={{ backgroundColor: dotColor }} />
+            {/* Color dot — vertical bar (more elegant than circle, easier to scan) */}
+            <div
+              className="w-1 h-9 rounded-full shrink-0 mt-0.5 transition-all group-hover:w-[3px]"
+              style={{ backgroundColor: dotColor }}
+            />
+
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5">
-                <div className="text-sm font-sans truncate text-foreground leading-tight">{task.title}</div>
+                <p className="text-body font-medium text-foreground truncate leading-snug">
+                  {task.title}
+                </p>
                 {task.sync_source === 'google' && (
-                  <GoogleIcon size={9} className="shrink-0 opacity-60" />
+                  <GoogleIcon size={9} className="shrink-0 opacity-55" />
+                )}
+                {task.is_recurring && (
+                  <span className="text-[10px] text-primary/70 font-medium" aria-label="Recurring">↻</span>
                 )}
               </div>
-              <div className="flex items-center gap-2 mt-1 text-[10px] font-mono text-muted-foreground flex-wrap">
+              <div className="flex items-center gap-2.5 mt-1 text-data text-muted-foreground flex-wrap leading-none">
                 {task.scheduling_mode !== 'fixed' && (
                   <span className="flex items-center gap-0.5">
                     <Clock className="w-2.5 h-2.5" />
-                    {task.total_duration}m
+                    <span className="tabular-nums">{task.total_duration}m</span>
                   </span>
                 )}
                 <span className="flex items-center gap-0.5">
@@ -115,32 +125,31 @@ export function TaskList({ tasks, onEdit, onDelete }: TaskListProps) {
                     <span>{modeLabel}</span>
                   </span>
                 )}
-                {task.is_recurring && (
-                  <span className="text-primary font-semibold">↻</span>
-                )}
                 {task.deadline && (
-                  <span className="flex items-center gap-0.5 text-accent-foreground">
+                  <span className="flex items-center gap-0.5 text-amber-300/85">
                     <Calendar className="w-2.5 h-2.5" />
-                    {task.deadline.substring(5)}
+                    <span className="tabular-nums">{task.deadline.substring(5)}</span>
                   </span>
                 )}
               </div>
             </div>
+
             <div className="flex flex-col items-end gap-1 shrink-0">
-              <div className={`text-[9px] font-mono px-1.5 py-0.5 rounded-full border ${
-                score >= 4.0
-                  ? 'text-destructive bg-destructive/10 border-destructive/30'
-                  : score >= 2.8
-                  ? 'text-orange-400 bg-orange-500/10 border-orange-500/30'
-                  : score >= 1.5
-                  ? 'text-muted-foreground bg-secondary border-border'
-                  : 'text-muted-foreground/50 bg-transparent border-transparent'
-              }`}>
-                {score >= 4.0 ? 'Critical' : score >= 2.8 ? 'High' : score >= 1.5 ? 'Normal' : 'Low'}
-              </div>
+              {score >= 1.5 && (
+                <div className={`text-[9px] font-mono font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded ${
+                  score >= 4.0
+                    ? 'text-destructive bg-destructive/10'
+                    : score >= 2.8
+                    ? 'text-amber-300 bg-amber-500/10'
+                    : 'text-muted-foreground bg-secondary'
+                }`}>
+                  {score >= 4.0 ? 'Critical' : score >= 2.8 ? 'High' : 'Normal'}
+                </div>
+              )}
               <button
                 onClick={e => { e.stopPropagation(); onDelete(task.id); }}
-                className="opacity-30 group-hover:opacity-100 text-destructive/50 hover:text-destructive transition-all p-0.5"
+                className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all p-0.5"
+                aria-label="Delete task"
               >
                 <Trash2 className="w-3 h-3" />
               </button>

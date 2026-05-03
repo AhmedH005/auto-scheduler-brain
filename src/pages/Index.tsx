@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { useScheduler } from '@/hooks/useScheduler';
 import { WeekView } from '@/components/WeekView';
@@ -6,8 +7,6 @@ import { DayView } from '@/components/DayView';
 import { MonthView } from '@/components/MonthView';
 import { TaskForm } from '@/components/TaskForm';
 import { TaskList } from '@/components/TaskList';
-import { SettingsPanel } from '@/components/SettingsPanel';
-import { CalendarIntegrationsPanel } from '@/components/CalendarIntegrationsPanel';
 import { RebuildPreviewSheet } from '@/components/RebuildPreviewSheet';
 import { CommandPalette } from '@/components/CommandPalette';
 import { ScheduleDensityBar } from '@/components/ScheduleDensityBar';
@@ -15,6 +14,9 @@ import { InsightsBanner } from '@/components/InsightsBanner';
 import { WeeklyRetrospectiveSheet } from '@/components/WeeklyRetrospectiveSheet';
 import { FloatingFinishedPill } from '@/components/FloatingFinishedPill';
 import { TopBar } from '@/components/TopBar';
+import { SettingsSheet } from '@/components/SettingsSheet';
+import { IntegrationsSheet } from '@/components/IntegrationsSheet';
+import { OnboardingFlow } from '@/components/OnboardingFlow';
 import { Task } from '@/types/task';
 import { useExternalCalendars } from '@/hooks/useExternalCalendars';
 import { Button } from '@/components/ui/button';
@@ -70,6 +72,8 @@ const Index = () => {
   const [quickAddTime, setQuickAddTime] = useState<string | undefined>();
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [retroOpen, setRetroOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [integrationsOpen, setIntegrationsOpen] = useState(false);
   const [insightsDismissed, setInsightsDismissed] = useState<Set<string>>(new Set());
   const lastResultIdRef = useRef<string | null>(null);
 
@@ -124,6 +128,20 @@ const Index = () => {
       if (meta && key === 'k') {
         e.preventDefault();
         setPaletteOpen(true);
+        return;
+      }
+
+      // ⌘\ = toggle sidebar (works even inside fields)
+      if (meta && key === '\\') {
+        e.preventDefault();
+        setSidebarOpen(s => !s);
+        return;
+      }
+
+      // ⌘, = open settings (mac convention)
+      if (meta && key === ',') {
+        e.preventDefault();
+        setSettingsOpen(true);
         return;
       }
 
@@ -251,18 +269,22 @@ const Index = () => {
           setSidebarOpen(true);
           setSidePanel('add');
         }}
-        onOpenSettings={() => {
-          setSidebarOpen(true);
-          setSidePanel('settings');
-        }}
+        onOpenSettings={() => setSettingsOpen(true)}
         onOpenRetrospective={() => setRetroOpen(true)}
       />
 
       {/* Sidebar + main canvas */}
       <div className="flex flex-1 min-h-0 overflow-hidden">
-      {/* Sidebar */}
+      {/* Sidebar — animated collapse */}
       {sidebarOpen && (
-        <div className="w-[280px] border-r border-border flex flex-col bg-card/50 shrink-0">
+        <motion.div
+          initial={{ width: 0, opacity: 0 }}
+          animate={{ width: 280, opacity: 1 }}
+          exit={{ width: 0, opacity: 0 }}
+          transition={{ type: 'spring', stiffness: 320, damping: 32 }}
+          className="border-r border-border flex flex-col bg-card/50 shrink-0 overflow-hidden"
+          style={{ width: 280 }}
+        >
           <div className="px-2 py-2 flex gap-1 border-b border-border/60">
             <Button
               size="sm"
@@ -313,27 +335,10 @@ const Index = () => {
                 getDurationSuggestion={getDurationSuggestion}
               />
             )}
-            {sidePanel === 'settings' && (
-              <SettingsPanel
-                settings={settings}
-                onUpdate={updateSettings}
-                onClose={() => setSidePanel('tasks')}
-                onOpenIntegrations={() => setSidePanel('integrations')}
-              />
-            )}
-            {sidePanel === 'integrations' && (
-              <CalendarIntegrationsPanel
-                accounts={calAccounts}
-                calendars={calCalendars}
-                syncStatus={syncStatus}
-                syncError={syncError}
-                onClose={() => setSidePanel('settings')}
-                onConnectGoogle={connectGoogle}
-                onSyncAccount={syncAccount}
-                onDisconnectAccount={disconnectAccount}
-                onToggleCalendar={toggleCalendar}
-              />
-            )}
+            {/* Settings + Integrations now render as right-slide Sheets at
+                the page root — they no longer take over the task-list panel.
+                See SettingsSheet / IntegrationsSheet at the bottom of this
+                component. */}
           </div>
 
           {/* Schedule health summary — only renders when there's something to flag */}
@@ -382,17 +387,20 @@ const Index = () => {
               <Undo2 className="w-3.5 h-3.5" />
             </Button>
           </div>
-        </div>
+        </motion.div>
       )}
 
-      {/* Toggle sidebar */}
-      <button
+      {/* Toggle sidebar — animated to follow the sidebar's width */}
+      <motion.button
+        animate={{ left: sidebarOpen ? 280 : 0 }}
+        transition={{ type: 'spring', stiffness: 320, damping: 32 }}
         onClick={() => setSidebarOpen(!sidebarOpen)}
-        className="absolute left-0 top-1/2 -translate-y-1/2 z-20 bg-card border border-border rounded-r-md p-1 text-muted-foreground hover:text-foreground transition-colors"
-        style={{ left: sidebarOpen ? '288px' : '0' }}
+        className="absolute top-1/2 -translate-y-1/2 z-20 bg-card border border-border rounded-r-md p-1 text-muted-foreground hover:text-foreground transition-colors"
+        title={sidebarOpen ? 'Collapse sidebar (⌘\\)' : 'Expand sidebar (⌘\\)'}
+        aria-label={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
       >
         {sidebarOpen ? <ChevronLeft className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-      </button>
+      </motion.button>
 
       {/* Calendar area */}
       <div className="flex-1 min-w-0 flex flex-col">
@@ -498,6 +506,74 @@ const Index = () => {
         onCancel={cancelPending}
       />
 
+      {/* Settings & integrations — right-slide sheets that float over the
+          canvas instead of replacing the task list. */}
+      <SettingsSheet
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        settings={settings}
+        energyInsight={insights.energy}
+        onUpdate={updateSettings}
+        onApplyLearnedDeepWindow={() => {
+          applyLearnedDeepWindow();
+          toast.success('Deep window updated', { description: insights.energy.reason, duration: 4500 });
+        }}
+        onOpenIntegrations={() => {
+          setSettingsOpen(false);
+          setIntegrationsOpen(true);
+        }}
+      />
+
+      <IntegrationsSheet
+        open={integrationsOpen}
+        onClose={() => setIntegrationsOpen(false)}
+        accounts={calAccounts}
+        calendars={calCalendars}
+        syncStatus={syncStatus}
+        syncError={syncError}
+        onConnectGoogle={connectGoogle}
+        onSyncAccount={syncAccount}
+        onDisconnectAccount={disconnectAccount}
+        onToggleCalendar={toggleCalendar}
+      />
+
+      {/* First-run onboarding — auto-shows for empty state, persists choice */}
+      <OnboardingFlow
+        hasNoTasks={tasks.length === 0}
+        hasNoHistory={(insights.energy.sample_size ?? 0) === 0 && summary.placedBlocks === 0}
+        settings={settings}
+        onUpdateSettings={updateSettings}
+        onAddSampleTask={(partial) => {
+          const sample: Task = {
+            id: `sample-${Date.now()}`,
+            title: partial.title ?? 'Deep work — getting started with AXIS',
+            description: partial.description,
+            color: undefined,
+            total_duration: partial.total_duration ?? 90,
+            priority: partial.priority ?? 4,
+            deadline: partial.deadline ?? null,
+            energy_intensity: partial.energy_intensity ?? 'deep',
+            scheduling_mode: partial.scheduling_mode ?? 'flexible',
+            window_start: null,
+            window_end: null,
+            start_datetime: null,
+            end_datetime: null,
+            execution_style: partial.execution_style ?? 'single',
+            is_recurring: partial.is_recurring ?? false,
+            recurrence_pattern: null,
+            recurrence_interval: 1,
+            recurrence_end: null,
+            status: partial.status ?? 'active',
+            created_at: new Date().toISOString(),
+          };
+          handleAddTask(sample);
+          toast.success('Sample task added', {
+            description: 'Click Rebuild in ⌘K to see it placed. Edit or delete anytime.',
+            duration: 4500,
+          });
+        }}
+      />
+
       {/* Floating "confirm what happened" pill — only renders when there
           are auto-marked blocks from today/yesterday that the user hasn't
           confirmed yet. Zero obligation — close anytime, assumed events
@@ -601,14 +677,8 @@ const Index = () => {
           setSidebarOpen(true);
           setSidePanel('add');
         }}
-        onOpenSettings={() => {
-          setSidebarOpen(true);
-          setSidePanel('settings');
-        }}
-        onOpenIntegrations={() => {
-          setSidebarOpen(true);
-          setSidePanel('integrations');
-        }}
+        onOpenSettings={() => setSettingsOpen(true)}
+        onOpenIntegrations={() => setIntegrationsOpen(true)}
         onSwitchView={setCalendarView}
         onJumpToToday={() => {
           setSelectedDate(new Date());
