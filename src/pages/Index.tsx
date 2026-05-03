@@ -8,20 +8,19 @@ import { TaskForm } from '@/components/TaskForm';
 import { TaskList } from '@/components/TaskList';
 import { SettingsPanel } from '@/components/SettingsPanel';
 import { CalendarIntegrationsPanel } from '@/components/CalendarIntegrationsPanel';
-import { LanguageSwitcher } from '@/components/LanguageSwitcher';
-import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 import { RebuildPreviewSheet } from '@/components/RebuildPreviewSheet';
 import { CommandPalette } from '@/components/CommandPalette';
 import { ScheduleDensityBar } from '@/components/ScheduleDensityBar';
 import { InsightsBanner } from '@/components/InsightsBanner';
 import { WeeklyRetrospectiveSheet } from '@/components/WeeklyRetrospectiveSheet';
 import { FloatingFinishedPill } from '@/components/FloatingFinishedPill';
+import { TopBar } from '@/components/TopBar';
 import { Task } from '@/types/task';
 import { useExternalCalendars } from '@/hooks/useExternalCalendars';
 import { Button } from '@/components/ui/button';
 import {
-  RefreshCw, Plus, Settings, Brain, ChevronLeft, ChevronRight,
-  CalendarDays, Calendar, LayoutGrid, Undo2, AlertTriangle, AlertOctagon,
+  RefreshCw, Plus, ChevronLeft, ChevronRight,
+  Undo2, AlertTriangle, AlertOctagon,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
@@ -227,49 +226,61 @@ const Index = () => {
     setCalendarView('day');
   };
 
+  const hasActionableInsight =
+    insights.energy.shift_recommended ||
+    insights.capacity.reduce_recommended ||
+    insights.capacity.raise_recommended ||
+    insights.missed.length > 0;
+
   return (
-    <div className="flex h-screen bg-background overflow-hidden">
+    <div className="flex flex-col h-screen bg-background overflow-hidden">
+      {/* Top bar — global navigation surface */}
+      <TopBar
+        view={calendarView}
+        selectedDate={selectedDate}
+        hasInsights={hasActionableInsight}
+        onViewChange={setCalendarView}
+        onDateChange={setSelectedDate}
+        onJumpToToday={() => {
+          setSelectedDate(new Date());
+          if (calendarView === 'month') setCalendarView('day');
+        }}
+        onOpenPalette={() => setPaletteOpen(true)}
+        onAddTask={() => {
+          clearQuickAdd();
+          setSidebarOpen(true);
+          setSidePanel('add');
+        }}
+        onOpenSettings={() => {
+          setSidebarOpen(true);
+          setSidePanel('settings');
+        }}
+        onOpenRetrospective={() => setRetroOpen(true)}
+      />
+
+      {/* Sidebar + main canvas */}
+      <div className="flex flex-1 min-h-0 overflow-hidden">
       {/* Sidebar */}
       {sidebarOpen && (
-        <div className="w-72 border-r border-border flex flex-col bg-card shrink-0">
-          <div className="px-3 py-2.5 border-b border-border">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Brain className="w-4 h-4 text-primary" />
-                <span className="font-mono text-xs font-bold tracking-wider text-primary">{t('app.name')}</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <ThemeSwitcher />
-                <LanguageSwitcher />
-              </div>
-            </div>
-          </div>
-
-          {/* Search / command palette trigger */}
-          <div className="px-2 pt-2 pb-1">
-            <button
-              onClick={() => setPaletteOpen(true)}
-              className="w-full group flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-secondary/40 hover:bg-secondary/70 border border-border hover:border-primary/30 transition-all"
-              aria-label="Open command palette (⌘K)"
+        <div className="w-[280px] border-r border-border flex flex-col bg-card/50 shrink-0">
+          <div className="px-2 py-2 flex gap-1 border-b border-border/60">
+            <Button
+              size="sm"
+              variant={sidePanel === 'tasks' ? 'default' : 'ghost'}
+              className="flex-1 h-7 text-body font-medium"
+              onClick={() => setSidePanel('tasks')}
             >
-              <span className="text-[10px] font-mono text-muted-foreground/55 group-hover:text-muted-foreground transition-colors flex-1 text-left">
-                Search or run a command…
-              </span>
-              <kbd className="text-[9px] font-mono text-muted-foreground/55 px-1.5 py-0.5 rounded border border-border bg-background/60">
-                ⌘K
-              </kbd>
-            </button>
-          </div>
-
-          <div className="px-2 py-1.5 flex gap-1 border-b border-border">
-            <Button size="sm" variant={sidePanel === 'tasks' ? 'default' : 'ghost'} className="flex-1 font-mono text-[10px] h-7" onClick={() => setSidePanel('tasks')}>
-              {t('sidebar.tasks')} ({tasks.filter(t => t.status === 'active').length})
+              {t('sidebar.tasks')} · {tasks.filter(t => t.status === 'active').length}
             </Button>
-            <Button size="sm" variant="ghost" className="font-mono text-[10px] h-7 px-2" onClick={() => { clearQuickAdd(); setSidePanel('add'); }}>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 px-2"
+              onClick={() => { clearQuickAdd(); setSidePanel('add'); }}
+              title="Add task (A)"
+              aria-label="Add task"
+            >
               <Plus className="w-3.5 h-3.5" />
-            </Button>
-            <Button size="sm" variant="ghost" className="font-mono text-[10px] h-7 px-2" onClick={() => setSidePanel('settings')}>
-              <Settings className="w-3.5 h-3.5" />
             </Button>
           </div>
 
@@ -429,27 +440,7 @@ const Index = () => {
           }}
         />
 
-        {/* View switcher */}
-        <div className="shrink-0 flex items-center gap-1 px-3 py-1.5 border-b border-border bg-background">
-          {([
-            { value: 'day', label: t('calendar.day'), icon: CalendarDays },
-            { value: 'week', label: t('calendar.week'), icon: Calendar },
-            { value: 'month', label: t('calendar.month'), icon: LayoutGrid },
-          ] as const).map(v => (
-            <Button
-              key={v.value}
-              variant={calendarView === v.value ? 'default' : 'ghost'}
-              size="sm"
-              className="font-mono text-[10px] h-6 px-2 gap-1"
-              onClick={() => setCalendarView(v.value)}
-            >
-              <v.icon className="w-3 h-3" />
-              {v.label}
-            </Button>
-          ))}
-        </div>
-
-        {/* View content */}
+        {/* View content — view switcher moved to the global TopBar */}
         <div className="flex-1 min-h-0">
           {calendarView === 'day' && (
             <DayView
@@ -494,6 +485,7 @@ const Index = () => {
             />
           )}
         </div>
+      </div>
       </div>
 
       {/* Rebuild preview — opens when user clicks Rebuild */}

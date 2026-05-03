@@ -513,17 +513,17 @@ export function WeekView({
                     >
                       <div className="flex items-start justify-between gap-1 h-full overflow-hidden">
                         <div className="min-w-0 flex-1">
-                          <div className={`text-[10px] font-mono font-medium leading-tight truncate text-foreground ${block.completed_at ? 'line-through decoration-emerald-400/60' : ''}`}>
+                          <div className={`text-[11px] font-sans font-semibold leading-tight truncate text-foreground tracking-tight ${block.completed_at ? 'line-through decoration-emerald-400/60' : ''}`}>
                             {task?.title || 'Unknown'}
                           </div>
-                          <div className="text-[9px] font-mono text-muted-foreground">
+                          <div className="text-[9px] font-mono text-muted-foreground tabular-nums leading-snug">
                             {format(new Date(block.start_time), 'HH:mm')}–{format(new Date(block.end_time), 'HH:mm')}
                             {block.completed_at && block.actual_minutes !== undefined && (
-                              <span className="ml-1 text-emerald-400/80">· {Math.round(block.actual_minutes)}m done</span>
+                              <span className="ml-1 text-emerald-400/80">· {Math.round(block.actual_minutes)}m</span>
                             )}
                           </div>
                           {!isSynced && task?.description && !block.completed_at && (
-                            <div className="text-[9px] font-sans text-muted-foreground/70 truncate leading-tight mt-0.5">
+                            <div className="text-[10px] font-sans text-muted-foreground/65 truncate leading-tight mt-0.5">
                               {task.description}
                             </div>
                           )}
