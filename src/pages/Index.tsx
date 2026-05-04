@@ -2,9 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { useScheduler } from '@/hooks/useScheduler';
-import { WeekView } from '@/components/WeekView';
-import { DayView } from '@/components/DayView';
-import { MonthView } from '@/components/MonthView';
 import { TaskForm } from '@/components/TaskForm';
 import { TaskList } from '@/components/TaskList';
 import { RebuildPreviewSheet } from '@/components/RebuildPreviewSheet';
@@ -15,6 +12,8 @@ import { WeeklyRetrospectiveSheet } from '@/components/WeeklyRetrospectiveSheet'
 import { FloatingFinishedPill } from '@/components/FloatingFinishedPill';
 import { TopBar, type AppMode } from '@/components/TopBar';
 import { NowView } from '@/components/NowView';
+import { TimeStream } from '@/components/TimeStream';
+import { MonthGlance } from '@/components/MonthGlance';
 import { SettingsSheet } from '@/components/SettingsSheet';
 import { IntegrationsSheet } from '@/components/IntegrationsSheet';
 import { OnboardingFlow } from '@/components/OnboardingFlow';
@@ -497,46 +496,47 @@ const Index = () => {
 
         {/* View content — view switcher moved to the global TopBar */}
         <div className="flex-1 min-h-0">
-          {calendarView === 'day' && (
-            <DayView
-              blocks={blocks} tasks={tasks} settings={settings}
-              selectedDate={selectedDate} onDateChange={setSelectedDate}
-              onMoveBlock={moveBlock} onResizeBlock={resizeBlock}
-              onLockBlock={lockBlock} onUnlockBlock={unlockBlock}
-              onDeleteBlock={deleteBlock} onQuickAdd={handleQuickAdd}
-              onEditTask={t => { setEditingTask(t); setSidebarOpen(true); setSidePanel('edit'); }}
-            />
-          )}
-          {calendarView === 'week' && (
-            <WeekView
-              blocks={blocks} tasks={tasks} settings={settings}
-              onMoveBlock={moveBlock} onResizeBlock={resizeBlock}
-              onLockBlock={lockBlock} onUnlockBlock={unlockBlock}
-              onDeleteBlock={deleteBlock} onQuickAdd={handleQuickAdd}
-              onEditTask={t => { setEditingTask(t); setSidebarOpen(true); setSidePanel('edit'); }}
+          {(calendarView === 'day' || calendarView === 'week') && (
+            <TimeStream
+              blocks={blocks}
+              tasks={tasks}
+              daysAhead={calendarView === 'day' ? 1 : 7}
+              selectedDate={selectedDate}
               onMarkDone={(id, mins) => {
-                if (mins === -1) {
-                  markBlockReopen(id);
-                  toast.success('Reopened — block is pending again');
-                } else {
-                  markBlockDone(id, mins);
-                  toast.success('Marked done', {
-                    description: 'Adaptive duration learned from this completion.',
-                    duration: 3000,
-                  });
-                }
+                markBlockDone(id, mins);
+                toast.success('Marked done', { duration: 2500 });
               }}
               onMarkSkipped={(id) => {
                 markBlockSkipped(id);
-                toast.success('Skipped — will be replanned on next rebuild', { duration: 3000 });
+                toast.success('Skipped — will be replanned on next rebuild', { duration: 2500 });
+              }}
+              onLockBlock={lockBlock}
+              onUnlockBlock={unlockBlock}
+              onDeleteBlock={deleteBlock}
+              onEditTask={(t) => {
+                setEditingTask(t);
+                setSidebarOpen(true);
+                setSidePanel('edit');
+              }}
+              onAddInGap={(date, time, mins) => {
+                handleQuickAdd(date, time);
+                toast.message('Adding task in gap', {
+                  description: `${mins}m available starting ${time}`,
+                  duration: 2000,
+                });
               }}
             />
           )}
           {calendarView === 'month' && (
-            <MonthView
-              blocks={blocks} tasks={tasks}
-              selectedDate={selectedDate} onDateChange={setSelectedDate}
-              onDayClick={handleMonthDayClick}
+            <MonthGlance
+              blocks={blocks}
+              settings={settings}
+              selectedDate={selectedDate}
+              onDateChange={setSelectedDate}
+              onDayClick={(d) => {
+                setSelectedDate(d);
+                setCalendarView('day');
+              }}
             />
           )}
         </div>
