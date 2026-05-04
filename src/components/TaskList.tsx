@@ -1,10 +1,14 @@
+import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Task } from '@/types/task';
 import { calculateScore } from '@/engine/scoring';
 import { Trash2, Clock, Zap, Shield, Pin, Calendar, Sparkles, Plus } from 'lucide-react';
+import { format } from 'date-fns';
 import { getTaskColor } from '@/lib/taskColors';
 import { GoogleIcon } from '@/components/GoogleIcon';
 import { useTranslation } from 'react-i18next';
+
+type Filter = 'all' | 'today' | 'active' | 'done';
 
 interface TaskListProps {
   tasks: Task[];
@@ -14,10 +18,31 @@ interface TaskListProps {
 
 export function TaskList({ tasks, onEdit, onDelete }: TaskListProps) {
   const { t } = useTranslation();
-  const activeTasks = tasks.filter(task => task.status === 'active');
-  const sorted = [...activeTasks].sort((a, b) => calculateScore(b) - calculateScore(a));
+  const [filter, setFilter] = useState<Filter>('active');
 
-  if (sorted.length === 0) {
+  const todayKey = format(new Date(), 'yyyy-MM-dd');
+
+  const counts = useMemo(() => {
+    return {
+      all: tasks.length,
+      active: tasks.filter(t => t.status === 'active').length,
+      today: tasks.filter(t => t.status === 'active' && t.deadline === todayKey).length,
+      done: tasks.filter(t => t.status === 'completed').length,
+    };
+  }, [tasks, todayKey]);
+
+  const filtered = useMemo(() => {
+    let r = tasks;
+    if (filter === 'active') r = r.filter(t => t.status === 'active');
+    else if (filter === 'today') r = r.filter(t => t.status === 'active' && t.deadline === todayKey);
+    else if (filter === 'done') r = r.filter(t => t.status === 'completed');
+    return [...r].sort((a, b) => calculateScore(b) - calculateScore(a));
+  }, [tasks, filter, todayKey]);
+
+  // The empty-state checks visible-list emptiness, but only show the
+  // illustrated empty when there are NO tasks at all (filter switching
+  // to a filter with zero matches gets a smaller empty hint).
+  if (tasks.length === 0) {
     return (
       <motion.div
         initial={{ opacity: 0, y: 8 }}
@@ -65,8 +90,47 @@ export function TaskList({ tasks, onEdit, onDelete }: TaskListProps) {
   }
 
   return (
-    <div className="flex flex-col gap-1.5">
-      {sorted.map(task => {
+    <div className="flex flex-col">
+      {/* Filter chips */}
+      <div className="flex items-center gap-0.5 px-1 py-1.5 mb-1.5 sticky top-0 bg-card/80 backdrop-blur z-10 -mx-2 px-2 rounded-md">
+        {(
+          [
+            { key: 'active' as Filter, label: 'Active', count: counts.active },
+            { key: 'today' as Filter, label: 'Today', count: counts.today },
+            { key: 'all' as Filter, label: 'All', count: counts.all },
+            { key: 'done' as Filter, label: 'Done', count: counts.done },
+          ]
+        ).map(({ key, label, count }) => {
+          const active = filter === key;
+          return (
+            <button
+              key={key}
+              onClick={() => setFilter(key)}
+              className={`flex items-center gap-1 px-2 h-6 rounded text-[11px] font-medium transition-colors ${
+                active
+                  ? 'bg-primary/15 text-primary'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-secondary/40'
+              }`}
+            >
+              {label}
+              <span className={`text-[9px] font-mono tabular-nums ${active ? 'text-primary/70' : 'text-muted-foreground/55'}`}>
+                {count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Empty filter state */}
+      {filtered.length === 0 && (
+        <div className="px-3 py-8 text-center">
+          <p className="text-caption">No tasks in {filter === 'today' ? 'today' : filter}.</p>
+        </div>
+      )}
+
+      {/* Task rows */}
+      <div className="flex flex-col gap-1.5">
+      {filtered.map(task => {
         const score = calculateScore(task);
         const taskColor = getTaskColor(task.color);
 
@@ -157,7 +221,7 @@ export function TaskList({ tasks, onEdit, onDelete }: TaskListProps) {
           </div>
         );
       })}
-
+      </div>
     </div>
   );
 }
