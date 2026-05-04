@@ -44,21 +44,19 @@ export function TaskEditSheet({
       description={task?.title ? `Updating "${task.title}"` : undefined}
       size="md"
     >
-      <div className="px-5 py-4">
-        {task && (
-          <TaskForm
-            initialTask={task}
-            onSubmit={(t) => {
-              onSubmit(t);
-              onClose();
-            }}
-            onClose={onClose}
-            existingBlocks={existingBlocks}
-            existingTasks={existingTasks}
-            getDurationSuggestion={getDurationSuggestion}
-          />
-        )}
-      </div>
+      {task && (
+        <TaskForm
+          initialTask={task}
+          onSubmit={(t) => {
+            onSubmit(t);
+            onClose();
+          }}
+          onClose={onClose}
+          existingBlocks={existingBlocks}
+          existingTasks={existingTasks}
+          getDurationSuggestion={getDurationSuggestion}
+        />
+      )}
     </Sheet>
   );
 }
