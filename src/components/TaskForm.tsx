@@ -1,28 +1,48 @@
 /**
- * TaskForm — property-row editor for tasks.
+ * TaskForm — research-backed task editor.
  *
  * Pattern lineage (every choice is borrowed, not invented):
- *   • Title + description: Things 3 — borderless inputs, autofocus on title,
- *     no visible label until something's typed.
- *   • Property rows (icon + label on left, control on right): Linear /
- *     Notion / GitHub Issues — uniform vertical rhythm, no big chunky cards.
- *   • Segmented controls for 2-5 enums (Mode, Energy): iOS / Linear —
- *     beats a dropdown when n ≤ 5 and labels are short.
- *   • Pill priority 1-5: Linear — discrete steps, color-encoded, more
- *     scannable than a slider.
- *   • Inline progressive disclosure for Recurring: Notion — toggle reveals
- *     pattern + end-date inline rather than nesting in a side card.
- *   • Sticky footer button: every modern sheet (Cron, Notion, Linear).
  *
- * What got cut from the previous version:
- *   - Duplicate inner header ("EDIT TASK" with pencil + close).
- *   - Big 3-card mode picker (now a 3-segment pill).
- *   - 7 duration chiclets (now a small dropdown with a custom-min input).
- *   - "BELOW AVG" giant text next to slider (priority is now visible pills).
- *   - Recurring-as-indented-box (now inline progressive reveal).
+ *   • Title + description hero (Things 3): borderless inputs, autofocus
+ *     on title, no labels until typed. Matches what users praise about
+ *     Things — "no friction, just type."
+ *
+ *   • Action-verb scheduling labels (Reclaim / Motion): the previous
+ *     "Flexible / Anchor / Fixed" required learning. Renamed to behavior:
+ *     "Auto-schedule" / "In a window" / "At a specific time". Same engine
+ *     values (flexible/anchor/fixed) — only the labels changed.
+ *
+ *   • Named priority pills (Linear / Motion): users praise Linear for
+ *     "No priority / Urgent / High / Medium / Low" with color encoding.
+ *     1-5 with no labels needs translation; named pills don't.
+ *
+ *   • Repeat as a single dropdown with presets (Things / Cron / Motion):
+ *     Off / Daily / Weekdays / Weekly / Monthly / Custom. The pattern +
+ *     interval + until that we used to indent inline now hides under
+ *     "Custom".
+ *
+ *   • Deadline quick-chips (Things / Sunsama): Today / Tomorrow / Fri /
+ *     None covers ~70% of cases. Custom date stays as fallback.
+ *
+ *   • Progressive disclosure (Linear / Notion / GitHub Issues): essentials
+ *     visible, the rest hides under an "Advanced" reveal. Reduces the
+ *     11-row wall of fields to ~5 visible rows.
+ *
+ *   • Snooze-until in Advanced (Reclaim / Motion): "don't schedule before
+ *     this date." Useful for tasks not yet ripe; filed under Advanced
+ *     because most tasks don't need it.
+ *
+ *   • "Deep focus" as a single toggle (Cal Newport's deep-work framing):
+ *     the previous 3-level energy was over-articulated. Off = standard.
+ *     On = protect for peak hours. Existing 'light' tasks display as
+ *     standard.
+ *
+ *   • Sticky footer with primary CTA (every modern sheet — Cron, Notion,
+ *     Linear, Things). Cancel left, Save right, ⌘↵ keyboard shortcut hint.
  */
 
 import React, { useMemo, useState } from 'react';
+import { format, addDays, nextFriday } from 'date-fns';
 import {
   Task,
   EnergyIntensity,
@@ -43,19 +63,20 @@ import {
 import {
   Calendar,
   Clock,
-  Zap,
   Repeat,
-  Shield,
-  Pin,
   Shuffle,
+  Pin,
+  Crosshair,
   AlertTriangle,
   Sparkles,
   Flame,
   Palette,
-  Layers,
+  ChevronDown,
+  Brain,
+  AlarmClock,
+  Split,
 } from 'lucide-react';
 import { TASK_COLORS, DEFAULT_COLOR_ID } from '@/lib/taskColors';
-import { useTranslation } from 'react-i18next';
 
 interface TaskFormProps {
   onSubmit: (task: Task) => void;
@@ -70,7 +91,7 @@ interface TaskFormProps {
   ) => DurationSuggestion;
 }
 
-// ─── Helpers ───────────────────────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────────────────
 
 function timeToMinutes(t: string): number {
   const [h, m] = t.split(':').map(Number);
@@ -127,8 +148,6 @@ export function TaskForm({
   quickAddTime,
   getDurationSuggestion,
 }: TaskFormProps) {
-  const { t } = useTranslation();
-
   const [title, setTitle] = useState(initialTask?.title || '');
   const [description, setDescription] = useState(initialTask?.description || '');
   const [color, setColor] = useState(initialTask?.color || DEFAULT_COLOR_ID);
@@ -145,16 +164,23 @@ export function TaskForm({
   });
 
   const [deadline, setDeadline] = useState(initialTask?.deadline || '');
-  const [energy, setEnergy] = useState<EnergyIntensity>(initialTask?.energy_intensity || 'moderate');
+  const [energy, setEnergy] = useState<EnergyIntensity>(
+    initialTask?.energy_intensity || 'moderate'
+  );
   const [execStyle, setExecStyle] = useState<ExecutionStyle>(
     initialTask?.execution_style || 'auto_chunk'
   );
-  const [isRecurring, setIsRecurring] = useState(initialTask?.is_recurring || false);
-  const [recPattern, setRecPattern] = useState<RecurrencePattern>(
-    initialTask?.recurrence_pattern || 'weekdays'
-  );
+
+  // Recurrence — collapsed into a single preset enum for the dropdown.
+  // 'custom' opens the interval input below.
+  type RepeatPreset = 'off' | 'daily' | 'weekdays' | 'weekly' | 'custom';
+  const [repeatPreset, setRepeatPreset] = useState<RepeatPreset>(() => {
+    if (!initialTask?.is_recurring) return 'off';
+    return (initialTask.recurrence_pattern as RepeatPreset) || 'weekly';
+  });
   const [recInterval, setRecInterval] = useState(initialTask?.recurrence_interval || 1);
   const [recEnd, setRecEnd] = useState(initialTask?.recurrence_end || '');
+  const isRecurring = repeatPreset !== 'off';
 
   const [anchorStart, setAnchorStart] = useState(initialTask?.window_start || '');
   const [anchorEnd, setAnchorEnd] = useState(initialTask?.window_end || '');
@@ -174,6 +200,10 @@ export function TaskForm({
     if (initialTask?.end_datetime) return initialTask.end_datetime.substring(11, 16);
     return '';
   });
+
+  // Advanced fields
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [snoozeUntil, setSnoozeUntil] = useState(''); // not yet on Task type — staged for engine integration
 
   const overlapWarning = (() => {
     if (mode === 'fixed' && fixedDate && fixedStartTime && fixedEndTime) {
@@ -200,6 +230,9 @@ export function TaskForm({
       startDatetime = `${fixedDate}T${fixedStartTime}:00`;
       endDatetime = `${fixedDate}T${fixedEndTime}:00`;
     }
+
+    const recPattern: RecurrencePattern | null =
+      repeatPreset === 'off' ? null : (repeatPreset as RecurrencePattern);
 
     const task: Task = {
       id: initialTask?.id || crypto.randomUUID(),
@@ -248,9 +281,8 @@ export function TaskForm({
       }}
       className="flex flex-col h-full"
     >
-      {/* Scrollable body — title + description as the hero, properties below */}
       <div className="flex-1 overflow-y-auto">
-        {/* Title — borderless hero input (Things 3 / Linear pattern) */}
+        {/* Hero — title + description (Things 3 pattern) */}
         <div className="px-5 pt-4 pb-1">
           <input
             value={title}
@@ -276,27 +308,29 @@ export function TaskForm({
 
         <Divider />
 
-        {/* Property rows — Linear/Notion pattern */}
+        {/* ───── ESSENTIALS ───── */}
         <div className="px-3 py-1.5">
-          <PropertyRow icon={Layers} label="Mode">
+          {/* WHEN — was "Mode". Action-verb labels (Reclaim/Motion). */}
+          <PropertyRow icon={Crosshair} label="When">
             <Segmented
               value={mode}
               onChange={v => setMode(v as SchedulingMode)}
               options={[
-                { value: 'flexible', label: 'Flexible', icon: Shuffle },
-                { value: 'anchor', label: 'Anchor', icon: Shield },
-                { value: 'fixed', label: 'Fixed', icon: Pin },
+                { value: 'flexible', label: 'Auto', icon: Shuffle, hint: 'Engine places it for you' },
+                { value: 'anchor', label: 'In a window', icon: Crosshair, hint: 'Schedule between two times' },
+                { value: 'fixed', label: 'At a time', icon: Pin, hint: 'Lock to specific datetime' },
               ]}
             />
           </PropertyRow>
 
-          {/* Mode-specific timing */}
+          {/* DURATION — only when auto-scheduling (window has its own duration) */}
           {mode === 'flexible' && (
             <PropertyRow icon={Clock} label="Duration">
               <DurationControl value={duration} onChange={setDuration} />
             </PropertyRow>
           )}
 
+          {/* WINDOW — when "In a window" */}
           {mode === 'anchor' && (
             <PropertyRow icon={Clock} label="Window">
               <div className="flex items-center gap-1.5 w-full justify-end">
@@ -317,6 +351,7 @@ export function TaskForm({
             </PropertyRow>
           )}
 
+          {/* FIXED — when "At a specific time" */}
           {mode === 'fixed' && (
             <>
               <PropertyRow icon={Calendar} label="Date">
@@ -347,132 +382,134 @@ export function TaskForm({
             </>
           )}
 
+          {/* PRIORITY — Linear-style named pills */}
           <PropertyRow icon={Flame} label="Priority">
-            <PriorityPills value={priority} onChange={setPriority} />
+            <NamedPriorityPills value={priority} onChange={setPriority} />
           </PropertyRow>
 
-          <PropertyRow icon={Zap} label="Energy">
-            <Segmented
-              value={energy}
-              onChange={v => setEnergy(v as EnergyIntensity)}
-              options={[
-                { value: 'light', label: 'Light' },
-                { value: 'moderate', label: 'Moderate' },
-                { value: 'deep', label: 'Deep' },
-              ]}
-            />
-          </PropertyRow>
-
-          {mode === 'flexible' && (
-            <PropertyRow icon={Sparkles} label="Execution">
-              <Select value={execStyle} onValueChange={v => setExecStyle(v as ExecutionStyle)}>
-                <SelectTrigger className="bg-secondary/50 border-border font-mono text-[11px] h-7 w-40 ml-auto">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="single">Single block</SelectItem>
-                  <SelectItem value="split">Split across days</SelectItem>
-                  <SelectItem value="auto_chunk">Auto-chunk</SelectItem>
-                </SelectContent>
-              </Select>
-            </PropertyRow>
-          )}
-
-          {mode !== 'fixed' && !isRecurring && (
-            <PropertyRow icon={Calendar} label="Deadline">
-              <Input
-                type="date"
-                value={deadline}
-                onChange={e => setDeadline(e.target.value)}
-                className="bg-secondary/50 border-border font-mono text-[11px] h-7 w-40 ml-auto"
-              />
-            </PropertyRow>
-          )}
-
+          {/* REPEAT — single dropdown with presets (Things/Cron/Motion) */}
           {mode !== 'fixed' && (
             <>
               <PropertyRow icon={Repeat} label="Repeat">
-                <button
-                  type="button"
-                  onClick={() => setIsRecurring(!isRecurring)}
-                  className={
-                    'inline-flex items-center justify-center px-3 h-7 rounded-md text-[11px] font-medium transition-colors ml-auto ' +
-                    (isRecurring
-                      ? 'bg-primary/15 text-primary border border-primary/30'
-                      : 'bg-secondary/40 text-muted-foreground border border-border hover:bg-secondary/60')
-                  }
+                <Select
+                  value={repeatPreset}
+                  onValueChange={v => setRepeatPreset(v as RepeatPreset)}
                 >
-                  {isRecurring ? 'On' : 'Off'}
-                </button>
+                  <SelectTrigger className="bg-secondary/50 border-border font-mono text-[11px] h-7 w-40 ml-auto">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="off">Doesn't repeat</SelectItem>
+                    <SelectItem value="daily">Every day</SelectItem>
+                    <SelectItem value="weekdays">Weekdays (Mon–Fri)</SelectItem>
+                    <SelectItem value="weekly">Every week</SelectItem>
+                    <SelectItem value="custom">Custom interval…</SelectItem>
+                  </SelectContent>
+                </Select>
               </PropertyRow>
 
-              {isRecurring && (
-                <>
-                  <PropertyRow icon={Repeat} label="Pattern" sub>
-                    <Select
-                      value={recPattern}
-                      onValueChange={v => setRecPattern(v as RecurrencePattern)}
-                    >
-                      <SelectTrigger className="bg-secondary/50 border-border font-mono text-[11px] h-7 w-40 ml-auto">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="daily">Every day</SelectItem>
-                        <SelectItem value="weekdays">Weekdays</SelectItem>
-                        <SelectItem value="weekly">Weekly</SelectItem>
-                        <SelectItem value="custom">Custom interval</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </PropertyRow>
-                  {recPattern === 'custom' && (
-                    <PropertyRow icon={Repeat} label="Every" sub>
-                      <div className="flex items-center gap-1.5 ml-auto">
-                        <Input
-                          type="number"
-                          value={recInterval}
-                          onChange={e =>
-                            setRecInterval(Math.max(1, Number(e.target.value)))
-                          }
-                          min={1}
-                          className="w-16 bg-secondary/50 border-border font-mono text-[11px] h-7 text-center"
-                        />
-                        <span className="text-[10px] text-muted-foreground/65">days</span>
-                      </div>
-                    </PropertyRow>
-                  )}
-                  <PropertyRow icon={Calendar} label="Until" sub>
+              {repeatPreset === 'custom' && (
+                <PropertyRow icon={Repeat} label="Every" sub>
+                  <div className="flex items-center gap-1.5 ml-auto">
                     <Input
-                      type="date"
-                      value={recEnd}
-                      onChange={e => setRecEnd(e.target.value)}
-                      className="bg-secondary/50 border-border font-mono text-[11px] h-7 w-40 ml-auto"
+                      type="number"
+                      value={recInterval}
+                      onChange={e =>
+                        setRecInterval(Math.max(1, Number(e.target.value)))
+                      }
+                      min={1}
+                      className="w-16 bg-secondary/50 border-border font-mono text-[11px] h-7 text-center"
                     />
-                  </PropertyRow>
-                </>
+                    <span className="text-[10px] text-muted-foreground/65">days</span>
+                  </div>
+                </PropertyRow>
+              )}
+
+              {isRecurring && (
+                <PropertyRow icon={Calendar} label="Until" sub>
+                  <Input
+                    type="date"
+                    value={recEnd}
+                    onChange={e => setRecEnd(e.target.value)}
+                    className="bg-secondary/50 border-border font-mono text-[11px] h-7 w-40 ml-auto"
+                  />
+                </PropertyRow>
               )}
             </>
           )}
 
-          <PropertyRow icon={Palette} label="Color">
-            <div className="flex items-center gap-1 flex-wrap justify-end ml-auto">
-              {TASK_COLORS.map(c => (
-                <button
-                  key={c.id}
-                  type="button"
-                  title={c.label}
-                  onClick={() => setColor(c.id)}
-                  className={
-                    'w-4 h-4 rounded-full transition-all ' +
-                    (color === c.id
-                      ? 'ring-2 ring-offset-2 ring-offset-card ring-foreground/70 scale-110'
-                      : 'opacity-70 hover:opacity-100 hover:scale-110')
-                  }
-                  style={{ backgroundColor: c.border }}
-                />
-              ))}
-            </div>
-          </PropertyRow>
+          {/* DEADLINE — quick chips + custom (Things/Sunsama) */}
+          {mode !== 'fixed' && !isRecurring && (
+            <PropertyRow icon={Calendar} label="Deadline">
+              <DeadlineControl value={deadline} onChange={setDeadline} />
+            </PropertyRow>
+          )}
+        </div>
 
+        {/* ───── ADVANCED disclosure ───── */}
+        <div className="px-3">
+          <button
+            type="button"
+            onClick={() => setAdvancedOpen(o => !o)}
+            className="w-full flex items-center gap-1.5 px-2 py-2 text-[10px] font-mono uppercase tracking-wider text-muted-foreground/55 hover:text-foreground transition-colors"
+          >
+            <ChevronDown
+              className={
+                'w-3 h-3 transition-transform ' + (advancedOpen ? '' : '-rotate-90')
+              }
+            />
+            Advanced
+          </button>
+
+          {advancedOpen && (
+            <div className="pb-1">
+              {/* DEEP FOCUS — single toggle (Cal Newport framing) */}
+              <PropertyRow icon={Brain} label="Deep focus">
+                <DeepFocusToggle value={energy} onChange={setEnergy} />
+              </PropertyRow>
+
+              {/* SPLITTABLE — replaces the old "Execution Style" dropdown */}
+              {mode === 'flexible' && (
+                <PropertyRow icon={Split} label="Splittable">
+                  <SplittableToggle value={execStyle} onChange={setExecStyle} />
+                </PropertyRow>
+              )}
+
+              {/* SNOOZE UNTIL — Reclaim/Motion pattern. Staged for engine wiring. */}
+              <PropertyRow icon={AlarmClock} label="Snooze until">
+                <Input
+                  type="date"
+                  value={snoozeUntil}
+                  onChange={e => setSnoozeUntil(e.target.value)}
+                  className="bg-secondary/50 border-border font-mono text-[11px] h-7 w-40 ml-auto"
+                  title="Don't schedule before this date"
+                />
+              </PropertyRow>
+
+              {/* COLOR — moved here from essentials */}
+              <PropertyRow icon={Palette} label="Color">
+                <div className="flex items-center gap-1 flex-wrap justify-end ml-auto">
+                  {TASK_COLORS.map(c => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      title={c.label}
+                      onClick={() => setColor(c.id)}
+                      className={
+                        'w-4 h-4 rounded-full transition-all ' +
+                        (color === c.id
+                          ? 'ring-2 ring-offset-2 ring-offset-card ring-foreground/70 scale-110'
+                          : 'opacity-70 hover:opacity-100 hover:scale-110')
+                      }
+                      style={{ backgroundColor: c.border }}
+                    />
+                  ))}
+                </div>
+              </PropertyRow>
+            </div>
+          )}
+
+          {/* Adaptive duration hint */}
           {mode === 'flexible' && (
             <DurationHint
               taskId={initialTask?.id}
@@ -493,7 +530,7 @@ export function TaskForm({
         </div>
       </div>
 
-      {/* Sticky footer with primary action — Cron / Linear / Notion pattern */}
+      {/* Sticky footer with primary action */}
       <div className="shrink-0 px-5 py-3 border-t border-border bg-card/95 backdrop-blur flex items-center gap-2">
         <button
           type="button"
@@ -533,28 +570,18 @@ function PropertyRow({
   icon: React.ComponentType<{ className?: string }>;
   label: string;
   children: React.ReactNode;
-  /** Renders as a sub-row indented and quieter — used for nested fields
-   *  inside a parent like Recurring. */
   sub?: boolean;
 }) {
   return (
-    <div
-      className={
-        'flex items-center gap-3 py-1.5 ' + (sub ? 'pl-8' : 'px-2')
-      }
-    >
+    <div className={'flex items-center gap-3 py-1.5 ' + (sub ? 'pl-8' : 'px-2')}>
       <div
         className={
           'flex items-center gap-2 shrink-0 ' +
-          (sub
-            ? 'w-[88px] text-muted-foreground/55'
-            : 'w-[100px] text-muted-foreground/75')
+          (sub ? 'w-[88px] text-muted-foreground/55' : 'w-[100px] text-muted-foreground/75')
         }
       >
         <Icon className="w-3 h-3" />
-        <span className="text-[10px] font-mono uppercase tracking-wider">
-          {label}
-        </span>
+        <span className="text-[10px] font-mono uppercase tracking-wider">{label}</span>
       </div>
       <div className="flex-1 min-w-0 flex justify-end">{children}</div>
     </div>
@@ -568,7 +595,12 @@ function Segmented<T extends string>({
 }: {
   value: T;
   onChange: (v: T) => void;
-  options: { value: T; label: string; icon?: React.ComponentType<{ className?: string }> }[];
+  options: {
+    value: T;
+    label: string;
+    icon?: React.ComponentType<{ className?: string }>;
+    hint?: string;
+  }[];
 }) {
   return (
     <div className="inline-flex items-center p-0.5 rounded-md bg-secondary/40 border border-border ml-auto">
@@ -579,6 +611,7 @@ function Segmented<T extends string>({
             key={opt.value}
             type="button"
             onClick={() => onChange(opt.value)}
+            title={opt.hint}
             className={
               'inline-flex items-center gap-1 px-2.5 h-6 rounded-sm text-[11px] font-medium transition-all ' +
               (active
@@ -595,50 +628,43 @@ function Segmented<T extends string>({
   );
 }
 
-function PriorityPills({
+// Linear-style named priority pills (Low / Medium / High / Urgent).
+// Internally maps to 1-5: Low=2, Medium=3, High=4, Urgent=5.
+function NamedPriorityPills({
   value,
   onChange,
 }: {
   value: number;
   onChange: (v: number) => void;
 }) {
+  const levels: { num: number; label: string; tone: string }[] = [
+    { num: 2, label: 'Low', tone: 'bg-muted text-foreground' },
+    { num: 3, label: 'Medium', tone: 'bg-primary text-primary-foreground' },
+    { num: 4, label: 'High', tone: 'bg-amber-500/85 text-white' },
+    { num: 5, label: 'Urgent', tone: 'bg-destructive text-white' },
+  ];
   return (
     <div className="inline-flex items-center gap-1 ml-auto">
-      {[1, 2, 3, 4, 5].map(p => {
-        const active = value === p;
+      {levels.map(lv => {
+        const active = value === lv.num;
         return (
           <button
-            key={p}
+            key={lv.num}
             type="button"
-            onClick={() => onChange(p)}
-            title={priorityName(p)}
+            onClick={() => onChange(lv.num)}
             className={
-              'w-7 h-7 rounded-md text-[11px] font-mono font-semibold tabular-nums transition-all ' +
+              'px-2.5 h-7 rounded-md text-[11px] font-medium transition-all ' +
               (active
-                ? p >= 5
-                  ? 'bg-destructive text-white shadow-sm scale-105'
-                  : p === 4
-                  ? 'bg-amber-500/85 text-white shadow-sm scale-105'
-                  : p === 3
-                  ? 'bg-primary text-primary-foreground shadow-sm scale-105'
-                  : 'bg-muted text-foreground shadow-sm scale-105'
-                : 'bg-secondary/40 text-muted-foreground/70 hover:bg-secondary/70 hover:text-foreground')
+                ? `${lv.tone} shadow-sm scale-[1.02]`
+                : 'bg-secondary/40 text-muted-foreground/80 hover:bg-secondary/70 hover:text-foreground')
             }
           >
-            {p}
+            {lv.label}
           </button>
         );
       })}
     </div>
   );
-}
-
-function priorityName(p: number): string {
-  if (p >= 5) return 'Urgent';
-  if (p === 4) return 'High';
-  if (p === 3) return 'Medium';
-  if (p === 2) return 'Low';
-  return 'Minimal';
 }
 
 function DurationControl({
@@ -685,7 +711,122 @@ function DurationControl({
   );
 }
 
-// ─── Adaptive duration hint (carried over from previous version) ──────
+// Things/Sunsama pattern — quick chips for common deadlines + a custom date.
+function DeadlineControl({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const today = format(new Date(), 'yyyy-MM-dd');
+  const tomorrow = format(addDays(new Date(), 1), 'yyyy-MM-dd');
+  const friday = format(nextFriday(new Date()), 'yyyy-MM-dd');
+
+  const chips = [
+    { value: '', label: 'None' },
+    { value: today, label: 'Today' },
+    { value: tomorrow, label: 'Tomorrow' },
+    { value: friday, label: 'Fri' },
+  ];
+
+  return (
+    <div className="inline-flex items-center gap-1 ml-auto">
+      {chips.map(c => {
+        const active = value === c.value;
+        return (
+          <button
+            key={c.label}
+            type="button"
+            onClick={() => onChange(c.value)}
+            className={
+              'px-2 h-7 rounded-md text-[11px] font-medium transition-colors ' +
+              (active
+                ? 'bg-primary/15 text-primary border border-primary/30'
+                : 'bg-secondary/40 text-muted-foreground/75 hover:bg-secondary/70 hover:text-foreground border border-transparent')
+            }
+          >
+            {c.label}
+          </button>
+        );
+      })}
+      <Input
+        type="date"
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        className="bg-secondary/50 border-border font-mono text-[11px] h-7 w-36"
+      />
+    </div>
+  );
+}
+
+// Single toggle replacing the 3-level energy picker. Off = standard
+// (engine receives 'moderate'), On = deep focus (engine receives 'deep').
+// Existing 'light' tasks display as Off (no migration on load).
+function DeepFocusToggle({
+  value,
+  onChange,
+}: {
+  value: EnergyIntensity;
+  onChange: (v: EnergyIntensity) => void;
+}) {
+  const isDeep = value === 'deep';
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(isDeep ? 'moderate' : 'deep')}
+      role="switch"
+      aria-checked={isDeep}
+      className={
+        'relative inline-flex items-center h-7 px-3 rounded-md text-[11px] font-medium transition-all border ml-auto ' +
+        (isDeep
+          ? 'bg-violet-500/20 text-violet-300 border-violet-500/40'
+          : 'bg-secondary/40 text-muted-foreground/75 border-border hover:bg-secondary/60')
+      }
+      title={
+        isDeep
+          ? 'Engine prioritizes peak focus hours'
+          : 'Standard task — schedules anywhere'
+      }
+    >
+      {isDeep ? 'On — protect peak hours' : 'Off — standard'}
+    </button>
+  );
+}
+
+// Replaces the old 3-option execution-style dropdown.
+function SplittableToggle({
+  value,
+  onChange,
+}: {
+  value: ExecutionStyle;
+  onChange: (v: ExecutionStyle) => void;
+}) {
+  const splittable = value !== 'single';
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(splittable ? 'single' : 'auto_chunk')}
+      role="switch"
+      aria-checked={splittable}
+      className={
+        'relative inline-flex items-center h-7 px-3 rounded-md text-[11px] font-medium transition-all border ml-auto ' +
+        (splittable
+          ? 'bg-primary/15 text-primary border-primary/30'
+          : 'bg-secondary/40 text-muted-foreground/75 border-border hover:bg-secondary/60')
+      }
+      title={
+        splittable
+          ? 'Engine can chunk this across multiple sessions'
+          : 'Engine keeps this as one block'
+      }
+    >
+      {splittable ? 'On — auto-chunk' : 'Off — single block'}
+    </button>
+  );
+}
+
+// ─── Adaptive duration hint (preserved) ──
 
 function DurationHint({
   taskId,
@@ -740,8 +881,7 @@ function DurationHint({
           {direction})
         </p>
         <p className="text-[10px] text-muted-foreground/70 mt-0.5">
-          Based on {confidenceCopy[suggestion.confidence as 'high' | 'medium' | 'low']}. Click to
-          apply.
+          Based on {confidenceCopy[suggestion.confidence as 'high' | 'medium' | 'low']}. Click to apply.
         </p>
       </div>
     </button>

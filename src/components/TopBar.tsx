@@ -28,6 +28,8 @@ import {
   LayoutGrid,
   Plus,
   PanelLeft,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
 
