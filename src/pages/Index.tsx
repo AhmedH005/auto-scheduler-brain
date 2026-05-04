@@ -31,7 +31,9 @@ import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
 import { summarizeRebuild } from '@/engine/diff';
 
-type SidePanel = 'tasks' | 'add' | 'edit' | 'settings' | 'integrations' | null;
+// SidePanel state was removed once Add/Edit/Settings/Integrations all moved
+// to floating modals/sheets. The sidebar now only shows the task list, so
+// there's nothing to switch between.
 type CalendarView = 'day' | 'week' | 'month';
 
 const Index = () => {
@@ -66,7 +68,6 @@ const Index = () => {
     if (syncedTasks.length > 0) importSyncedTasks(syncedTasks);
   }, [syncedTasks]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const [sidePanel, setSidePanel] = useState<SidePanel>('tasks');
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [calendarView, setCalendarView] = useState<CalendarView>('week');
@@ -231,14 +232,12 @@ const Index = () => {
 
   const handleAddTask = (task: Task) => {
     addTask(task);
-    setSidePanel('tasks');
     setTimeout(() => rebuild({ silent: true }), 100);
   };
 
   const handleUpdateTask = (task: Task) => {
     updateTask(task.id, task);
     setEditingTask(null);
-    setSidePanel('tasks');
     setTimeout(() => rebuild({ silent: true }), 100);
   };
 
@@ -332,15 +331,15 @@ const Index = () => {
           className="border-r border-border flex flex-col bg-card/50 shrink-0 overflow-hidden"
           style={{ width: 280 }}
         >
-          <div className="px-2 py-2 flex gap-1 border-b border-border/60">
-            <Button
-              size="sm"
-              variant={sidePanel === 'tasks' ? 'default' : 'ghost'}
-              className="flex-1 h-7 text-body font-medium"
-              onClick={() => setSidePanel('tasks')}
-            >
-              {t('sidebar.tasks')} · {tasks.filter(t => t.status === 'active').length}
-            </Button>
+          {/* Sidebar header — static label + add button. No more
+              tab-switching since Add/Edit moved to floating modals. */}
+          <div className="px-3 py-2.5 flex items-center justify-between border-b border-border/60">
+            <div className="flex items-center gap-1.5 text-body font-medium text-foreground/80">
+              <span>{t('sidebar.tasks')}</span>
+              <span className="text-[10px] font-mono text-muted-foreground/60 tabular-nums">
+                {tasks.filter(t => t.status === 'active').length}
+              </span>
+            </div>
             <Button
               size="sm"
               variant="ghost"
@@ -358,17 +357,14 @@ const Index = () => {
           </div>
 
           <div className="flex-1 overflow-y-auto px-2 py-2">
-            {sidePanel === 'tasks' && (
-              <TaskList
-                tasks={tasks}
-                onEdit={t => { setEditingTask(t); }}
-                onDelete={handleDeleteTask}
-              />
-            )}
-            {/* Add and Edit no longer render in the sidebar. Add → QuickAdd
-                modal (⌘N or +Task). Edit → TaskEditSheet floating on the right.
-                Settings + Integrations also render as right-slide Sheets at
-                the page root — see the bottom of this component. */}
+            <TaskList
+              tasks={tasks}
+              onEdit={t => { setEditingTask(t); }}
+              onDelete={handleDeleteTask}
+            />
+            {/* Add → QuickAdd modal (⌘N or +Task). Edit → TaskEditSheet
+                floating on the right. Settings + Integrations also render
+                as right-slide Sheets at the page root. */}
           </div>
 
           {/* Schedule health summary — only renders when there's something to flag */}
