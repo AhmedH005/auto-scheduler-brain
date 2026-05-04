@@ -282,21 +282,21 @@ export function TaskForm({
       className="flex flex-col h-full"
     >
       <div className="flex-1 overflow-y-auto">
-        {/* Hero — title + description (Things 3 pattern) */}
-        <div className="px-5 pt-4 pb-1">
+        {/* Hero — title + description (Things 3 pattern, scaled up) */}
+        <div className="px-6 pt-5 pb-3">
           <input
             value={title}
             onChange={e => setTitle(e.target.value)}
-            placeholder="Task title"
+            placeholder="What's this task?"
             autoFocus
-            className="w-full bg-transparent text-display text-foreground placeholder:text-muted-foreground/40 focus:outline-none border-0 p-0 leading-tight"
+            className="w-full bg-transparent text-[20px] font-semibold text-foreground placeholder:text-muted-foreground/35 focus:outline-none border-0 p-0 leading-tight tracking-tight"
           />
           <textarea
             value={description}
             onChange={e => setDescription(e.target.value)}
-            placeholder="Add a description…"
+            placeholder="Add notes (optional)…"
             rows={1}
-            className="mt-1.5 w-full bg-transparent text-body text-foreground/80 placeholder:text-muted-foreground/40 focus:outline-none border-0 p-0 resize-none leading-relaxed"
+            className="mt-2 w-full bg-transparent text-[13px] text-foreground/75 placeholder:text-muted-foreground/35 focus:outline-none border-0 p-0 resize-none leading-relaxed"
             style={{ minHeight: 22 }}
             onInput={e => {
               const el = e.currentTarget;
@@ -309,7 +309,7 @@ export function TaskForm({
         <Divider />
 
         {/* ───── ESSENTIALS ───── */}
-        <div className="px-3 py-1.5">
+        <div className="px-4 py-3 space-y-0.5">
           {/* WHEN — was "Mode". Action-verb labels (Reclaim/Motion). */}
           <PropertyRow icon={Crosshair} label="When">
             <Segmented
@@ -447,11 +447,12 @@ export function TaskForm({
         </div>
 
         {/* ───── ADVANCED disclosure ───── */}
-        <div className="px-3">
+        <div className="border-t border-border/40 mt-2">
+        <div className="px-4 pt-2 pb-1">
           <button
             type="button"
             onClick={() => setAdvancedOpen(o => !o)}
-            className="w-full flex items-center gap-1.5 px-2 py-2 text-[10px] font-mono uppercase tracking-wider text-muted-foreground/55 hover:text-foreground transition-colors"
+            className="w-full flex items-center gap-1.5 px-2 py-2 text-[10px] font-mono uppercase tracking-wider text-muted-foreground/55 hover:text-foreground transition-colors rounded-md hover:bg-secondary/30"
           >
             <ChevronDown
               className={
@@ -459,10 +460,15 @@ export function TaskForm({
               }
             />
             Advanced
+            {!advancedOpen && (
+              <span className="ml-auto text-[9px] font-normal lowercase tracking-normal text-muted-foreground/40">
+                deep focus · splittable · snooze · color
+              </span>
+            )}
           </button>
 
           {advancedOpen && (
-            <div className="pb-1">
+            <div className="pb-2 space-y-0.5">
               {/* DEEP FOCUS — single toggle (Cal Newport framing) */}
               <PropertyRow icon={Brain} label="Deep focus">
                 <DeepFocusToggle value={energy} onChange={setEnergy} />
@@ -475,14 +481,19 @@ export function TaskForm({
                 </PropertyRow>
               )}
 
-              {/* SNOOZE UNTIL — Reclaim/Motion pattern. Staged for engine wiring. */}
+              {/* SNOOZE UNTIL — Reclaim/Motion pattern. Staged for engine wiring.
+                  Use cases:
+                    • "Tax return" — can't start before W-2 arrives Jan 31
+                    • "Follow up email" — wait 3 days for a reply
+                    • "Renew passport" — surface this in 6 months
+                    • "Prep for board deck" — start 1 week before meeting */}
               <PropertyRow icon={AlarmClock} label="Snooze until">
                 <Input
                   type="date"
                   value={snoozeUntil}
                   onChange={e => setSnoozeUntil(e.target.value)}
                   className="bg-secondary/50 border-border font-mono text-[11px] h-7 w-40 ml-auto"
-                  title="Don't schedule before this date"
+                  title="Engine won't schedule this before the chosen date. Use for: 'wait for W-2', 'follow up if no reply', 'renew passport in 6mo'."
                 />
               </PropertyRow>
 
@@ -508,8 +519,11 @@ export function TaskForm({
               </PropertyRow>
             </div>
           )}
+        </div>
+        </div>
 
-          {/* Adaptive duration hint */}
+        {/* Adaptive duration hint + overlap warning */}
+        <div className="px-4">
           {mode === 'flexible' && (
             <DurationHint
               taskId={initialTask?.id}
@@ -546,7 +560,7 @@ export function TaskForm({
         <button
           type="submit"
           disabled={!title.trim() || !!overlapWarning}
-          className="inline-flex items-center justify-center gap-1.5 px-4 h-9 rounded-md bg-primary text-primary-foreground text-[12px] font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:brightness-110 transition-all"
+          className="inline-flex items-center justify-center gap-1.5 px-5 h-9 rounded-lg bg-primary text-primary-foreground text-[12px] font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:brightness-110 active:scale-[0.98] transition-all shadow-sm"
         >
           {isEditing ? 'Save changes' : 'Add task'}
         </button>
@@ -573,11 +587,16 @@ function PropertyRow({
   sub?: boolean;
 }) {
   return (
-    <div className={'flex items-center gap-3 py-1.5 ' + (sub ? 'pl-8' : 'px-2')}>
+    <div
+      className={
+        'flex items-center gap-3 py-2 rounded-md transition-colors ' +
+        (sub ? 'pl-10 pr-2' : 'px-3 hover:bg-secondary/25')
+      }
+    >
       <div
         className={
           'flex items-center gap-2 shrink-0 ' +
-          (sub ? 'w-[88px] text-muted-foreground/55' : 'w-[100px] text-muted-foreground/75')
+          (sub ? 'w-[100px] text-muted-foreground/55' : 'w-[110px] text-muted-foreground/75')
         }
       >
         <Icon className="w-3 h-3" />

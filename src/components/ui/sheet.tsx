@@ -78,21 +78,25 @@ export function Sheet({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
-            className="fixed inset-0 z-40 bg-background/70 backdrop-blur-sm"
+            transition={{ duration: 0.18 }}
+            className="fixed inset-0 z-40 bg-background/80 backdrop-blur-md"
             onClick={onClose}
             aria-hidden="true"
           />
           <motion.aside
             key="panel"
-            initial={{ opacity: 0, x: 24 }}
+            initial={{ opacity: 0, x: 32 }}
             animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 24 }}
-            transition={{ type: 'spring', stiffness: 320, damping: 30 }}
+            exit={{ opacity: 0, x: 32 }}
+            transition={{ type: 'spring', stiffness: 360, damping: 32 }}
             role="dialog"
             aria-modal="true"
             aria-label={title}
-            className={`fixed right-0 top-0 bottom-0 z-50 ${sizeWidthClass[size]} bg-card border-l border-border shadow-2xl flex flex-col`}
+            className={`fixed right-3 top-3 bottom-3 z-50 ${sizeWidthClass[size]} bg-card border border-border shadow-2xl flex flex-col rounded-2xl overflow-hidden`}
+            style={{
+              boxShadow:
+                '0 32px 64px -32px rgba(0,0,0,0.5), 0 0 0 1px hsl(var(--border) / 0.5)',
+            }}
           >
             {/* Header */}
             {(title || description || !hideClose) && (

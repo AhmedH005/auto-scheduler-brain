@@ -1,14 +1,13 @@
 /**
- * TaskEditSheet — replaces the sidebar-replacing edit panel pattern.
+ * TaskEditSheet — slide-in panel for both new tasks and existing-task edits.
  *
- * When the user clicks an existing task, this sheet slides in from the
- * right, holding the full TaskForm. The sidebar task list stays put,
- * preserving context. Apply or close — your place in the list isn't lost.
+ * Single surface, two modes:
+ *   • task is null   → "New task" header, TaskForm with default values.
+ *   • task is a Task → "Edit task" header, TaskForm with initialTask=task.
  *
- * Why a sheet not a modal: editing has many fields (priority, recurrence,
- * deadline, energy, execution, color, description). A modal-modal would
- * feel cramped. The right-slide sheet gives breathing room and uses
- * the same primitive as Settings/Integrations for consistency.
+ * Width is "lg" (560px) — the form has 6+ rows, narrower felt cramped.
+ * The Sheet primitive provides the slide animation, escape-to-close,
+ * click-outside-to-close, and the rounded inner corner.
  */
 
 import { Sheet } from '@/components/ui/sheet';
@@ -17,6 +16,7 @@ import { Task, ScheduledBlock, DurationSuggestion } from '@/types/task';
 
 interface TaskEditSheetProps {
   open: boolean;
+  /** Pass null when creating a new task; the sheet renders an empty form. */
   task: Task | null;
   existingBlocks: ScheduledBlock[];
   existingTasks: Task[];
@@ -36,27 +36,32 @@ export function TaskEditSheet({
   onSubmit,
   getDurationSuggestion,
 }: TaskEditSheetProps) {
+  const isEditing = !!task;
   return (
     <Sheet
       open={open}
       onClose={onClose}
-      title="Edit task"
-      description={task?.title ? `Updating "${task.title}"` : undefined}
-      size="md"
+      title={isEditing ? 'Edit task' : 'New task'}
+      description={
+        isEditing
+          ? task!.title
+            ? `Updating "${task!.title}"`
+            : 'Updating untitled task'
+          : 'Add it to the inbox — axis will place it'
+      }
+      size="lg"
     >
-      {task && (
-        <TaskForm
-          initialTask={task}
-          onSubmit={(t) => {
-            onSubmit(t);
-            onClose();
-          }}
-          onClose={onClose}
-          existingBlocks={existingBlocks}
-          existingTasks={existingTasks}
-          getDurationSuggestion={getDurationSuggestion}
-        />
-      )}
+      <TaskForm
+        initialTask={task ?? undefined}
+        onSubmit={t => {
+          onSubmit(t);
+          onClose();
+        }}
+        onClose={onClose}
+        existingBlocks={existingBlocks}
+        existingTasks={existingTasks}
+        getDurationSuggestion={getDurationSuggestion}
+      />
     </Sheet>
   );
 }

@@ -1,54 +1,44 @@
 /**
  * axis — three-pane scheduler.
  *
- * Layout convergence on what users praise across the leaders:
- *
  *   ┌──────────────────────────────────────────────────────────────┐
- *   │ TopBar (Cron-style: ◀ Today ▶ + view switcher + ⌘K + +Task)│
+ *   │ TopBar (◀ Today ▶ + view switcher + ⌘K + +Task)              │
  *   ├────────────┬─────────────────────────────────────────────────┤
  *   │ Sidebar    │                                                 │
  *   │ Right Now  │           Calendar (Day/Week/Month)             │
  *   │ Today      │           (Motion/Reclaim/Cron grid)            │
  *   │ Inbox      │                                                 │
  *   │ Due soon   │                                                 │
- *   ├────────────┴─────────────────────────────────────────────────┤
- *   │  ✦ tell axis…  (Cron slash-command bar — secondary, not spine)│
- *   └──────────────────────────────────────────────────────────────┘
+ *   └────────────┴─────────────────────────────────────────────────┘
  *
  * Pattern lineage:
- *   • Top bar — Cron / Notion Calendar (compact, keyboard-first)
- *   • Sidebar — Sunsama (Right Now + Today blocks) × Things 3 (Inbox /
- *     Today / Due Soon sections with counts)
- *   • Calendar — Motion / Reclaim / Cron (traditional 7-column grid,
- *     time on Y, drag-to-move, click empty to add)
- *   • ⌘K command palette — Linear / Cron / Notion Calendar
- *   • Quick-add modal — Cron / Linear (NL "Read paper 90m by Friday")
- *   • Right-slide sheets for Settings / Integrations / Insights — every
- *     modern productivity app
- *   • Bottom assistant bar — Cron's slash command, kept lightweight
- *
- * No invented patterns. No inverted axes. No mode toggles. The user
- * sees the same skeleton they already know from Motion/Sunsama/Cron.
+ *   • Top bar — Cron / Notion Calendar (compact, keyboard-first).
+ *   • Sidebar — Sunsama (Right Now + Today) × Things 3 (Inbox / Today
+ *     / Due Soon sections with counts).
+ *   • Calendar — Motion / Reclaim / Cron (traditional 7-column grid).
+ *   • ⌘K command palette — Linear / Cron / Notion Calendar.
+ *   • TaskEditSheet for both new + edit — Things 3 / Sunsama: one
+ *     surface for both flows. No NL chatbox masquerading as AI; the
+ *     deterministic regex composer was removed when the user pointed
+ *     out (correctly) that it shouldn't pretend to be intelligent.
+ *   • Right-slide sheets for Settings / Integrations / Insights —
+ *     every modern productivity app.
  */
 
-import { useEffect, useMemo, useState } from 'react';
-import { format, addDays } from 'date-fns';
+import { useEffect, useState } from 'react';
+import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { useScheduler } from '@/hooks/useScheduler';
 import { useExternalCalendars } from '@/hooks/useExternalCalendars';
-import { Task, ScheduledBlock } from '@/types/task';
-import { interpret } from '@/engine/assistant';
-import { parsedTaskToTask } from '@/engine/quickadd-parser';
+import { Task } from '@/types/task';
 import { summarizeRebuild } from '@/engine/diff';
 
 import { TopBar } from '@/components/TopBar';
 import { AxisSidebar } from '@/components/axis/AxisSidebar';
-import { AssistantBar, type ThreadTurn } from '@/components/axis/AssistantBar';
 import { DayView } from '@/components/DayView';
 import { WeekView } from '@/components/WeekView';
 import { MonthView } from '@/components/MonthView';
-import { QuickAddModal } from '@/components/QuickAddModal';
 import { CommandPalette } from '@/components/CommandPalette';
 import { TaskEditSheet } from '@/components/TaskEditSheet';
 import { TasksSheet } from '@/components/axis/TasksSheet';
@@ -129,20 +119,26 @@ const Index = () => {
 
   // Modal/sheet state
   const [paletteOpen, setPaletteOpen] = useState(false);
-  const [quickAddOpen, setQuickAddOpen] = useState(false);
-  const [quickAddInitial, setQuickAddInitial] = useState<string | undefined>();
+  // editingTask = null AND taskSheetOpen = true → "new task" mode.
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [taskSheetOpen, setTaskSheetOpen] = useState(false);
   const [tasksSheetOpen, setTasksSheetOpen] = useState(false);
   const [insightsSheetOpen, setInsightsSheetOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [integrationsOpen, setIntegrationsOpen] = useState(false);
-  const [thread, setThread] = useState<ThreadTurn[]>(() => [
-    {
-      from: 'axis',
-      text: 'tell me what you\'re working on or what\'s next.',
-      at: Date.now(),
-    },
-  ]);
+
+  const openNewTask = () => {
+    setEditingTask(null);
+    setTaskSheetOpen(true);
+  };
+  const openEditTask = (t: Task) => {
+    setEditingTask(t);
+    setTaskSheetOpen(true);
+  };
+  const closeTaskSheet = () => {
+    setTaskSheetOpen(false);
+    setEditingTask(null);
+  };
 
   // First-load auto-rebuild
   useEffect(() => {
@@ -189,7 +185,7 @@ const Index = () => {
       }
       if (meta && key === 'n') {
         e.preventDefault();
-        setQuickAddOpen(true);
+        openNewTask();
         return;
       }
       if (meta && key === '\\') {
@@ -202,7 +198,7 @@ const Index = () => {
 
       if (key === 'a') {
         e.preventDefault();
-        setQuickAddOpen(true);
+        openNewTask();
       } else if (key === 't') {
         e.preventDefault();
         setSelectedDate(new Date());
@@ -233,143 +229,46 @@ const Index = () => {
     deleteTask(id);
     setTimeout(() => rebuild({ silent: true }), 100);
   };
+  /** Calendar empty-slot click — opens TaskEditSheet with a new task,
+   *  pre-seeded as a fixed-time entry at the clicked slot. */
   const handleQuickAddFromCalendar = (date: string, time: string) => {
     const hh = time.slice(0, 5);
-    setQuickAddInitial(`Task at ${hh}`);
-    setQuickAddOpen(true);
+    const start = `${date}T${hh}:00`;
+    // Default to a 60-minute block.
+    const [h, m] = hh.split(':').map(Number);
+    const endMin = Math.min(22 * 60, h * 60 + m + 60);
+    const endH = String(Math.floor(endMin / 60)).padStart(2, '0');
+    const endM = String(endMin % 60).padStart(2, '0');
+    const stub: Task = {
+      id: `task-${Date.now()}`,
+      title: '',
+      description: undefined,
+      color: undefined,
+      total_duration: 60,
+      priority: 3,
+      deadline: null,
+      energy_intensity: 'moderate',
+      scheduling_mode: 'fixed',
+      window_start: null,
+      window_end: null,
+      start_datetime: start,
+      end_datetime: `${date}T${endH}:${endM}:00`,
+      execution_style: 'single',
+      is_recurring: false,
+      recurrence_pattern: null,
+      recurrence_interval: 1,
+      recurrence_end: null,
+      status: 'active',
+      created_at: new Date().toISOString(),
+    };
+    setEditingTask(stub);
+    setTaskSheetOpen(true);
   };
   const handleApplyPreview = () => {
     if (!pendingResult || !pendingDiff) return;
     const summaryText = summarizeRebuild(pendingDiff, pendingResult);
     applyPending();
     toast.success('Schedule updated', { description: summaryText, duration: 4000 });
-  };
-
-  const pushAxis = (text: string) =>
-    setThread(prev => [...prev, { from: 'axis', text, at: Date.now() }]);
-
-  // Conversation handler — reuses the intent engine
-  const handleAssistantSubmit = (input: string) => {
-    setThread(prev => [...prev, { from: 'user', text: input, at: Date.now() }]);
-    const turn = interpret(input, now);
-    let speech = turn.speech;
-
-    const findBlock = (q: string): ScheduledBlock | undefined => {
-      const ql = q.toLowerCase().trim();
-      return blocks
-        .filter(b => !b.completed_at)
-        .find(b => {
-          const tt = tasks.find(t => t.id === b.task_id);
-          return tt && tt.title.toLowerCase().includes(ql);
-        });
-    };
-
-    switch (turn.intent.kind) {
-      case 'add': {
-        const partial = parsedTaskToTask(turn.intent.task);
-        const newTask: Task = {
-          id: `task-${Date.now()}`,
-          ...partial,
-          status: 'active',
-          created_at: new Date().toISOString(),
-        };
-        handleAddTask(newTask);
-        break;
-      }
-      case 'complete': {
-        const b = findBlock(turn.intent.query);
-        if (b) markBlockDone(b.id, 'confirmed');
-        else speech = `Couldn't find a block matching "${turn.intent.query}".`;
-        break;
-      }
-      case 'skip': {
-        const b = findBlock(turn.intent.query);
-        if (b) markBlockSkipped(b.id);
-        else speech = `Couldn't find a block matching "${turn.intent.query}".`;
-        break;
-      }
-      case 'delete': {
-        const ql = turn.intent.query.toLowerCase().trim();
-        const target = tasks.find(t => t.title.toLowerCase().includes(ql));
-        if (target) handleDeleteTask(target.id);
-        else speech = `Couldn't find a task matching "${turn.intent.query}".`;
-        break;
-      }
-      case 'replan':
-        rebuild({ silent: true });
-        break;
-      case 'undo':
-        if (canUndo) undo();
-        else speech = 'Nothing to undo.';
-        break;
-      case 'ease': {
-        const today = format(now, 'yyyy-MM-dd');
-        setDayMode(today, 'easy');
-        setTimeout(() => rebuild({ silent: true }), 50);
-        break;
-      }
-      case 'push': {
-        const today = format(now, 'yyyy-MM-dd');
-        setDayMode(today, 'heavy');
-        setTimeout(() => rebuild({ silent: true }), 50);
-        break;
-      }
-      case 'query_now': {
-        const cur = blocks.find(b => {
-          const s = new Date(b.start_time);
-          const e = new Date(b.end_time);
-          return s <= now && now < e && !b.completed_at;
-        });
-        if (cur) {
-          const t = tasks.find(x => x.id === cur.task_id);
-          speech = t
-            ? `Right now: ${t.title}, until ${format(new Date(cur.end_time), 'HH:mm')}.`
-            : 'On a block.';
-        } else speech = 'Nothing this minute.';
-        break;
-      }
-      case 'query_next': {
-        const next = blocks
-          .filter(b => new Date(b.start_time) > now && !b.completed_at)
-          .sort((a, b) => a.start_time.localeCompare(b.start_time))[0];
-        if (next) {
-          const t = tasks.find(x => x.id === next.task_id);
-          speech = t
-            ? `Next: ${t.title} at ${format(new Date(next.start_time), 'HH:mm')}.`
-            : 'Next block exists but task is missing.';
-        } else speech = 'Nothing scheduled next today.';
-        break;
-      }
-      case 'query_today': {
-        const today = format(now, 'yyyy-MM-dd');
-        const todayBlocks = blocks.filter(b => b.start_time.startsWith(today));
-        speech = `${todayBlocks.length} block${todayBlocks.length === 1 ? '' : 's'} on today.`;
-        break;
-      }
-      case 'query_week':
-        speech = `${blocks.length} block${blocks.length === 1 ? '' : 's'} this week.`;
-        break;
-      case 'show_tasks':
-        setTasksSheetOpen(true);
-        break;
-      case 'show_calendar':
-        setCalendarView('week');
-        speech = 'Switched to week view.';
-        break;
-      case 'show_insights':
-        setInsightsSheetOpen(true);
-        break;
-      case 'show_settings':
-        setSettingsOpen(true);
-        break;
-      case 'show_integrations':
-        setIntegrationsOpen(true);
-        break;
-      case 'unknown':
-        // speech already set
-        break;
-    }
-    if (speech) pushAxis(speech);
   };
 
   const hasInsights =
@@ -391,7 +290,7 @@ const Index = () => {
         onDateChange={setSelectedDate}
         onJumpToToday={() => setSelectedDate(new Date())}
         onOpenPalette={() => setPaletteOpen(true)}
-        onAddTask={() => setQuickAddOpen(true)}
+        onAddTask={openNewTask}
         onOpenSettings={() => setSettingsOpen(true)}
         onOpenRetrospective={() => setInsightsSheetOpen(true)}
       />
@@ -413,7 +312,7 @@ const Index = () => {
                 tasks={tasks}
                 blocks={blocks}
                 now={now}
-                onTaskClick={t => setEditingTask(t)}
+                onTaskClick={openEditTask}
                 onBlockComplete={id => {
                   markBlockDone(id, 'confirmed');
                   toast.success('Marked done');
@@ -443,7 +342,7 @@ const Index = () => {
               onUnlockBlock={unlockBlock}
               onDeleteBlock={deleteBlock}
               onQuickAdd={handleQuickAddFromCalendar}
-              onEditTask={t => setEditingTask(t)}
+              onEditTask={openEditTask}
             />
           )}
           {calendarView === 'week' && (
@@ -457,7 +356,7 @@ const Index = () => {
               onUnlockBlock={unlockBlock}
               onDeleteBlock={deleteBlock}
               onQuickAdd={handleQuickAddFromCalendar}
-              onEditTask={t => setEditingTask(t)}
+              onEditTask={openEditTask}
               onMarkDone={id => markBlockDone(id, 'confirmed')}
               onMarkSkipped={markBlockSkipped}
             />
@@ -477,35 +376,7 @@ const Index = () => {
         </main>
       </div>
 
-      {/* Bottom: persistent assistant bar — Cron-style slash command */}
-      <AssistantBar
-        thread={thread}
-        onSubmit={handleAssistantSubmit}
-        onClearThread={() =>
-          setThread([{ from: 'axis', text: 'cleared.', at: Date.now() }])
-        }
-      />
-
       {/* ─── Modals & sheets ─── */}
-      <QuickAddModal
-        open={quickAddOpen}
-        onClose={() => {
-          setQuickAddOpen(false);
-          setQuickAddInitial(undefined);
-        }}
-        initialInput={quickAddInitial}
-        onSubmit={partial => {
-          const newTask: Task = {
-            id: `task-${Date.now()}`,
-            ...partial,
-            status: 'active',
-            created_at: new Date().toISOString(),
-          };
-          handleAddTask(newTask);
-          toast.success(`"${partial.title}" added`, { duration: 2500 });
-        }}
-      />
-
       <CommandPalette
         open={paletteOpen}
         onOpenChange={setPaletteOpen}
@@ -533,25 +404,35 @@ const Index = () => {
           toast.success(`Daily cap set to ${insights.capacity.suggested_cap_hours}h`);
         }}
         onOpenRetrospective={() => setInsightsSheetOpen(true)}
-        onAddTask={() => setQuickAddOpen(true)}
+        onAddTask={openNewTask}
         onOpenSettings={() => setSettingsOpen(true)}
         onOpenIntegrations={() => setIntegrationsOpen(true)}
         onSwitchView={setCalendarView}
         onJumpToToday={() => setSelectedDate(new Date())}
         onJumpToTask={id => {
           const task = tasks.find(t => t.id === id);
-          if (task) setEditingTask(task);
+          if (task) openEditTask(task);
         }}
         onToggleSidebar={() => setSidebarOpen(s => !s)}
       />
 
+      {/* TaskEditSheet — handles BOTH new (task=null) and edit (task=Task).
+          One surface for both flows; Things 3 / Sunsama pattern. */}
       <TaskEditSheet
-        open={editingTask !== null}
+        open={taskSheetOpen}
         task={editingTask}
         existingBlocks={blocks}
         existingTasks={tasks}
-        onClose={() => setEditingTask(null)}
-        onSubmit={handleUpdateTask}
+        onClose={closeTaskSheet}
+        onSubmit={t => {
+          if (editingTask) {
+            handleUpdateTask(t);
+          } else {
+            handleAddTask(t);
+            toast.success(`"${t.title || 'Untitled task'}" added`, { duration: 2500 });
+          }
+          closeTaskSheet();
+        }}
         getDurationSuggestion={getDurationSuggestion}
       />
 
@@ -571,7 +452,7 @@ const Index = () => {
         }}
         onFocusComposer={() => {
           setTasksSheetOpen(false);
-          setQuickAddOpen(true);
+          openNewTask();
         }}
       />
 
@@ -624,7 +505,7 @@ const Index = () => {
         onJumpToTask={id => {
           const task = tasks.find(t => t.id === id);
           if (!task) return;
-          setEditingTask(task);
+          openEditTask(task);
           setInsightsSheetOpen(false);
         }}
       />
