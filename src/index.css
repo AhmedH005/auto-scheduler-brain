@@ -6,45 +6,56 @@
 
 @layer base {
   :root {
-    /* Slightly warmer base than the previous 220° blue-grey — moves it
-       toward neutral so the teal accent reads as the only "loud" element.
-       Calibrated to AA contrast against foreground. */
-    --background: 224 14% 7%;
-    --foreground: 220 14% 92%;
+    /* AXIS NOW — completely new visual identity.
+       Midnight indigo base + dawn-amber accent. Not a calendar tool
+       aesthetic — a focus-mode aesthetic. The active block GLOWS like
+       sunrise; everything else recedes. */
+    --background: 230 30% 5%;
+    --foreground: 230 8% 94%;
 
-    --card: 224 13% 10%;
-    --card-foreground: 220 14% 92%;
+    --card: 232 25% 8%;
+    --card-foreground: 230 8% 94%;
 
-    --popover: 224 13% 11%;
-    --popover-foreground: 220 14% 92%;
+    --popover: 232 24% 10%;
+    --popover-foreground: 230 8% 94%;
 
-    --primary: 175 68% 48%;
-    --primary-foreground: 224 14% 7%;
+    /* Primary accent flipped from teal-of-the-old-app to "dawn amber" —
+       used ONLY on the focal block + actively-running state. Loud where
+       it matters, silent everywhere else. */
+    --primary: 28 95% 62%;
+    --primary-foreground: 230 30% 5%;
 
-    --secondary: 224 12% 14%;
-    --secondary-foreground: 220 14% 84%;
+    /* Teal demoted to "live" indicator (now-line, etc) — kept for
+       continuity with engine code that references --time-marker. */
+    --time-marker: 175 70% 55%;
 
-    --muted: 224 12% 12%;
-    --muted-foreground: 220 10% 55%;
+    --secondary: 232 22% 12%;
+    --secondary-foreground: 230 8% 86%;
 
-    --accent: 175 50% 22%;
-    --accent-foreground: 175 70% 82%;
+    --muted: 232 22% 11%;
+    --muted-foreground: 230 8% 56%;
 
-    --destructive: 0 70% 50%;
+    --accent: 28 80% 22%;
+    --accent-foreground: 28 95% 80%;
+
+    --destructive: 0 75% 58%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 224 12% 17%;
-    --input: 224 12% 15%;
-    --ring: 175 68% 48%;
+    --border: 232 20% 15%;
+    --input: 232 20% 13%;
+    --ring: 28 95% 62%;
 
-    /* Tighter radius — modern productivity tools (Linear, Cron, Things)
-       trend sharper. 4px feels more precise than 6. */
-    --radius: 0.25rem;
+    /* Slightly larger radius — softer feel matches the focus-mode
+       aesthetic. Not Linear-sharp; not Notion-rounded. Something between. */
+    --radius: 0.5rem;
 
     /* Custom tokens */
-    --energy-deep: 260 60% 55%;
-    --energy-moderate: 35 80% 55%;
-    --energy-light: 145 50% 45%;
+    /* Energy zones updated for the new dawn-amber palette — deep cool,
+       moderate sits between, light warm-green. They harmonize with the
+       midnight base instead of fighting it. */
+    --energy-deep: 248 65% 62%;
+    --energy-moderate: 28 85% 60%;
+    --energy-light: 158 50% 50%;
 
     --priority-5: 0 70% 55%;
     --priority-4: 25 80% 55%;
@@ -245,5 +256,47 @@
   }
   .focus-ring:focus-visible {
     outline-color: hsl(var(--ring) / 0.6);
+  }
+
+  /* ─── Glow surfaces (NOW mode focal card) ─────────────────────────
+     The active "now" block glows like dawn — radial amber haze layered
+     under the card. Sets a focus-mode mood you cannot get from a
+     standard calendar grid. */
+  .glow-now {
+    box-shadow:
+      0 0 0 1px hsl(var(--primary) / 0.3),
+      0 0 60px -8px hsl(var(--primary) / 0.35),
+      0 0 120px -16px hsl(var(--primary) / 0.18),
+      0 16px 48px -16px hsl(230 35% 2% / 0.65);
+  }
+  .glow-soft {
+    box-shadow:
+      0 1px 0 0 hsl(var(--border) / 0.6),
+      0 8px 24px -12px hsl(230 35% 2% / 0.5);
+  }
+
+  /* Animated gradient backdrop used on the NOW hero — a slow drifting
+     dawn sky. Pure CSS; no images. */
+  @keyframes dawnDrift {
+    0%, 100% { background-position: 0% 50%; }
+    50%      { background-position: 100% 50%; }
+  }
+  .bg-dawn {
+    background-image:
+      radial-gradient(circle at 30% 20%, hsl(var(--primary) / 0.18), transparent 50%),
+      radial-gradient(circle at 70% 80%, hsl(var(--energy-deep) / 0.12), transparent 50%),
+      linear-gradient(180deg, hsl(var(--card)), hsl(232 28% 6%));
+    background-size: 200% 200%, 200% 200%, 100% 100%;
+    animation: dawnDrift 28s ease-in-out infinite;
+  }
+
+  /* Subtle pulsing ring — used on the now-line marker + active block dot. */
+  @keyframes pulseRing {
+    0%   { box-shadow: 0 0 0 0 hsl(var(--time-marker) / 0.6); }
+    70%  { box-shadow: 0 0 0 8px hsl(var(--time-marker) / 0); }
+    100% { box-shadow: 0 0 0 0 hsl(var(--time-marker) / 0); }
+  }
+  .pulse-ring {
+    animation: pulseRing 2.4s ease-out infinite;
   }
 }

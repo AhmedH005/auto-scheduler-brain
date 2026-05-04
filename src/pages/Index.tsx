@@ -13,7 +13,8 @@ import { ScheduleDensityBar } from '@/components/ScheduleDensityBar';
 import { InsightsBanner } from '@/components/InsightsBanner';
 import { WeeklyRetrospectiveSheet } from '@/components/WeeklyRetrospectiveSheet';
 import { FloatingFinishedPill } from '@/components/FloatingFinishedPill';
-import { TopBar } from '@/components/TopBar';
+import { TopBar, type AppMode } from '@/components/TopBar';
+import { NowView } from '@/components/NowView';
 import { SettingsSheet } from '@/components/SettingsSheet';
 import { IntegrationsSheet } from '@/components/IntegrationsSheet';
 import { OnboardingFlow } from '@/components/OnboardingFlow';
@@ -75,6 +76,15 @@ const Index = () => {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [integrationsOpen, setIntegrationsOpen] = useState(false);
   const [insightsDismissed, setInsightsDismissed] = useState<Set<string>>(new Set());
+  // The new primary mode toggle. NOW = focus-mode execution view.
+  // PLAN = the existing calendar grid (preserved as a tool).
+  const [appMode, setAppMode] = useState<AppMode>(() => {
+    const saved = localStorage.getItem('axis_app_mode');
+    return saved === 'plan' ? 'plan' : 'now';
+  });
+  useEffect(() => {
+    localStorage.setItem('axis_app_mode', appMode);
+  }, [appMode]);
   const lastResultIdRef = useRef<string | null>(null);
 
   // First-load auto rebuild — silent, no preview interruption
@@ -254,9 +264,11 @@ const Index = () => {
     <div className="flex flex-col h-screen bg-background overflow-hidden">
       {/* Top bar — global navigation surface */}
       <TopBar
+        mode={appMode}
         view={calendarView}
         selectedDate={selectedDate}
         hasInsights={hasActionableInsight}
+        onModeChange={setAppMode}
         onViewChange={setCalendarView}
         onDateChange={setSelectedDate}
         onJumpToToday={() => {
@@ -266,14 +278,49 @@ const Index = () => {
         onOpenPalette={() => setPaletteOpen(true)}
         onAddTask={() => {
           clearQuickAdd();
-          setSidebarOpen(true);
-          setSidePanel('add');
+          if (appMode === 'plan') {
+            setSidebarOpen(true);
+            setSidePanel('add');
+          } else {
+            // In NOW mode there's no sidebar — flip to plan mode + open form
+            setAppMode('plan');
+            setSidebarOpen(true);
+            setSidePanel('add');
+          }
         }}
         onOpenSettings={() => setSettingsOpen(true)}
         onOpenRetrospective={() => setRetroOpen(true)}
       />
 
-      {/* Sidebar + main canvas */}
+      {/* NOW mode — the new primary execution surface */}
+      {appMode === 'now' && (
+        <NowView
+          blocks={blocks}
+          tasks={tasks}
+          atRiskCount={summary.atRiskTasks}
+          droppedCount={summary.droppedTasks}
+          onMarkDone={(id, mins) => {
+            markBlockDone(id, mins);
+            toast.success('Marked done', { duration: 2500 });
+          }}
+          onMarkSkipped={(id) => {
+            markBlockSkipped(id);
+            toast.success('Skipped — will be replanned on next rebuild', { duration: 2500 });
+          }}
+          onLockBlock={lockBlock}
+          onUnlockBlock={unlockBlock}
+          onEditTask={(t) => {
+            setEditingTask(t);
+            setAppMode('plan');
+            setSidebarOpen(true);
+            setSidePanel('edit');
+          }}
+          onOpenRetrospective={() => setRetroOpen(true)}
+        />
+      )}
+
+      {/* PLAN mode — the calendar grid (preserved tool) */}
+      {appMode === 'plan' && (
       <div className="flex flex-1 min-h-0 overflow-hidden">
       {/* Sidebar — animated collapse */}
       {sidebarOpen && (
@@ -495,6 +542,7 @@ const Index = () => {
         </div>
       </div>
       </div>
+      )}
 
       {/* Rebuild preview — opens when user clicks Rebuild */}
       <RebuildPreviewSheet
