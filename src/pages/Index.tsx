@@ -34,12 +34,11 @@ import { useExternalCalendars } from '@/hooks/useExternalCalendars';
 import { Task, ScheduledBlock } from '@/types/task';
 import { interpret } from '@/engine/assistant';
 import { parsedTaskToTask } from '@/engine/quickadd-parser';
-import { WeekRibbon } from '@/components/axis/WeekRibbon';
+import { HorizonCalendar } from '@/components/axis/HorizonCalendar';
 import { NowCard } from '@/components/axis/NowCard';
 import { UpcomingFlow } from '@/components/axis/UpcomingFlow';
 import { AssistantBar, type ThreadTurn } from '@/components/axis/AssistantBar';
 import { TasksSheet } from '@/components/axis/TasksSheet';
-import { CalendarSheet } from '@/components/axis/CalendarSheet';
 import { DeadlinesStrip } from '@/components/axis/DeadlinesStrip';
 import { SettingsSheet } from '@/components/SettingsSheet';
 import { IntegrationsSheet } from '@/components/IntegrationsSheet';
@@ -50,7 +49,6 @@ import {
   Moon,
   Sparkles,
   ListChecks,
-  CalendarDays,
   TrendingUp,
 } from 'lucide-react';
 
@@ -63,10 +61,7 @@ const Index = () => {
     updateTask,
     deleteTask,
     deleteBlock,
-    lockBlock,
-    unlockBlock,
     moveBlock,
-    resizeBlock,
     rebuild,
     undo,
     canUndo,
@@ -117,7 +112,6 @@ const Index = () => {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [integrationsOpen, setIntegrationsOpen] = useState(false);
   const [tasksSheetOpen, setTasksSheetOpen] = useState(false);
-  const [calendarSheetOpen, setCalendarSheetOpen] = useState(false);
   const [insightsSheetOpen, setInsightsSheetOpen] = useState(false);
   const composerFocusRef = { current: null as null | (() => void) };
   const [theme, setTheme] = useState<'dark' | 'light'>(
@@ -290,7 +284,10 @@ const Index = () => {
         setTasksSheetOpen(true);
         break;
       case 'show_calendar':
-        setCalendarSheetOpen(true);
+        // The horizon calendar lives at the top of the home page now —
+        // there's no separate sheet to open. Scroll to it instead.
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        speech = 'Calendar is at the top — scroll up.';
         break;
       case 'show_insights':
         setInsightsSheetOpen(true);
@@ -345,12 +342,6 @@ const Index = () => {
             <ListChecks className="w-3.5 h-3.5" />
           </HeaderIcon>
           <HeaderIcon
-            label="Calendar"
-            onClick={() => setCalendarSheetOpen(true)}
-          >
-            <CalendarDays className="w-3.5 h-3.5" />
-          </HeaderIcon>
-          <HeaderIcon
             label="Insights"
             badge={
               insights.energy.shift_recommended ||
@@ -381,11 +372,32 @@ const Index = () => {
 
       {/* Main scroll — 3 stacked surfaces, max 2xl wide centered */}
       <main className="flex-1 max-w-2xl mx-auto w-full px-5 pb-44 space-y-3.5">
-        <WeekRibbon
+        <HorizonCalendar
           blocks={blocks}
           tasks={tasks}
+          settings={settings}
           selectedDate={selectedDate}
+          now={now}
           onSelectDate={setSelectedDate}
+          onMoveBlock={(id, start, end) => {
+            moveBlock(id, start, end);
+            toast.success('Moved');
+          }}
+          onTapBlock={b => {
+            const t = tasks.find(x => x.id === b.task_id);
+            if (!t) return;
+            const firstWord = t.title.split(/\s+/)[0];
+            pushAxis(
+              `${t.title} · ${format(new Date(b.start_time), 'EEE HH:mm')} for ${t.total_duration}m. Try "I finished ${firstWord}", "skip ${firstWord}", "delete ${firstWord}".`
+            );
+          }}
+          onTapEmpty={(date, time) => {
+            // A click on empty calendar space → seed the composer with a
+            // fixed-time stub. The user can keep typing to refine.
+            pushAxis(
+              `Tap below to add: try "Task at ${time} on ${date.slice(5)}".`
+            );
+          }}
         />
 
         <DeadlinesStrip
@@ -512,29 +524,6 @@ const Index = () => {
             const ev = new KeyboardEvent('keydown', { key: '/', metaKey: true });
             window.dispatchEvent(ev);
           }, 220);
-        }}
-      />
-
-      <CalendarSheet
-        open={calendarSheetOpen}
-        onClose={() => setCalendarSheetOpen(false)}
-        blocks={blocks}
-        tasks={tasks}
-        settings={settings}
-        onMoveBlock={moveBlock}
-        onResizeBlock={resizeBlock}
-        onLockBlock={lockBlock}
-        onUnlockBlock={unlockBlock}
-        onDeleteBlock={deleteBlock}
-        onMarkDone={id => markBlockDone(id, 'confirmed')}
-        onMarkSkipped={markBlockSkipped}
-        onQuickAdd={(date, time) => {
-          // Closing the sheet, focus composer with a fixed-time stub
-          setCalendarSheetOpen(false);
-          const hh = time.slice(0, 5);
-          pushAxis(
-            `Tap below to compose — try "Task at ${hh} on ${date.slice(5)}".`
-          );
         }}
       />
 
