@@ -32,6 +32,11 @@ export type AssistantIntent =
   | { kind: 'query_next' }
   | { kind: 'query_today' }
   | { kind: 'query_week' }
+  | { kind: 'show_tasks' }
+  | { kind: 'show_calendar' }
+  | { kind: 'show_insights' }
+  | { kind: 'show_settings' }
+  | { kind: 'show_integrations' }
   | { kind: 'unknown'; raw: string };
 
 export interface AssistantTurn {
@@ -53,6 +58,11 @@ const RX = {
   qNext: /\b(what'?s?\s+(?:up\s+)?next|coming\s+up|after\s+this)\b/i,
   qToday: /\b(what'?s?\s+(?:on\s+)?today|today'?s?\s+plan|plan\s+(?:for\s+)?today)\b/i,
   qWeek: /\b(this\s+week|week\s+ahead|week\s+plan)\b/i,
+  showTasks: /^(show|open|see)\s+(?:all\s+)?(tasks|task\s+list|inbox|backlog)\b/i,
+  showCalendar: /^(show|open|see)\s+(calendar|grid|week|schedule)\b/i,
+  showInsights: /^(show|open|see)\s+(insights?|stats?|analytics|retro(?:spective)?|report)\b/i,
+  showSettings: /^(show|open|see)\s+settings?\b/i,
+  showIntegrations: /^(show|open|see|connect)\s+(integrations?|google|calendars?)\b/i,
 };
 
 export function interpret(input: string, now = new Date()): AssistantTurn {
@@ -94,6 +104,12 @@ export function interpret(input: string, now = new Date()): AssistantTurn {
   if (RX.qNext.test(lower)) return { intent: { kind: 'query_next' }, speech: '' };
   if (RX.qToday.test(lower)) return { intent: { kind: 'query_today' }, speech: '' };
   if (RX.qWeek.test(lower)) return { intent: { kind: 'query_week' }, speech: '' };
+
+  if (RX.showTasks.test(lower)) return { intent: { kind: 'show_tasks' }, speech: 'Opening tasks.' };
+  if (RX.showCalendar.test(lower)) return { intent: { kind: 'show_calendar' }, speech: 'Opening calendar.' };
+  if (RX.showInsights.test(lower)) return { intent: { kind: 'show_insights' }, speech: 'Opening insights.' };
+  if (RX.showSettings.test(lower)) return { intent: { kind: 'show_settings' }, speech: 'Opening settings.' };
+  if (RX.showIntegrations.test(lower)) return { intent: { kind: 'show_integrations' }, speech: 'Opening integrations.' };
 
   // Default: try to add a task. The parser is forgiving — anything it
   // can't pin down stays as the title, so "buy milk" becomes a 30-min

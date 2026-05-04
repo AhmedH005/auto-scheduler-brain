@@ -38,9 +38,21 @@ import { WeekRibbon } from '@/components/axis/WeekRibbon';
 import { NowCard } from '@/components/axis/NowCard';
 import { UpcomingFlow } from '@/components/axis/UpcomingFlow';
 import { AssistantBar, type ThreadTurn } from '@/components/axis/AssistantBar';
+import { TasksSheet } from '@/components/axis/TasksSheet';
+import { CalendarSheet } from '@/components/axis/CalendarSheet';
+import { DeadlinesStrip } from '@/components/axis/DeadlinesStrip';
 import { SettingsSheet } from '@/components/SettingsSheet';
 import { IntegrationsSheet } from '@/components/IntegrationsSheet';
-import { Settings, Sun, Moon, Sparkles } from 'lucide-react';
+import { WeeklyRetrospectiveSheet } from '@/components/WeeklyRetrospectiveSheet';
+import {
+  Settings,
+  Sun,
+  Moon,
+  Sparkles,
+  ListChecks,
+  CalendarDays,
+  TrendingUp,
+} from 'lucide-react';
 
 const Index = () => {
   const {
@@ -48,8 +60,13 @@ const Index = () => {
     blocks,
     settings,
     addTask,
+    updateTask,
     deleteTask,
     deleteBlock,
+    lockBlock,
+    unlockBlock,
+    moveBlock,
+    resizeBlock,
     rebuild,
     undo,
     canUndo,
@@ -60,6 +77,7 @@ const Index = () => {
     setDayMode,
     insights,
     applyLearnedDeepWindow,
+    applyLearnedCap,
     updateSettings,
     importSyncedTasks,
   } = useScheduler();
@@ -98,6 +116,10 @@ const Index = () => {
   ]);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [integrationsOpen, setIntegrationsOpen] = useState(false);
+  const [tasksSheetOpen, setTasksSheetOpen] = useState(false);
+  const [calendarSheetOpen, setCalendarSheetOpen] = useState(false);
+  const [insightsSheetOpen, setInsightsSheetOpen] = useState(false);
+  const composerFocusRef = { current: null as null | (() => void) };
   const [theme, setTheme] = useState<'dark' | 'light'>(
     () => (localStorage.getItem('axis_theme') as 'dark' | 'light') || 'dark'
   );
@@ -264,6 +286,21 @@ const Index = () => {
         speech = `${weekCount} block${weekCount === 1 ? '' : 's'} this week. The ribbon at the top shows where they sit.`;
         break;
       }
+      case 'show_tasks':
+        setTasksSheetOpen(true);
+        break;
+      case 'show_calendar':
+        setCalendarSheetOpen(true);
+        break;
+      case 'show_insights':
+        setInsightsSheetOpen(true);
+        break;
+      case 'show_settings':
+        setSettingsOpen(true);
+        break;
+      case 'show_integrations':
+        setIntegrationsOpen(true);
+        break;
       case 'unknown':
         // speech is already set by interpret()
         break;
@@ -299,27 +336,46 @@ const Index = () => {
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-1">
-          <button
+        <div className="flex items-center gap-0.5">
+          <HeaderIcon
+            label="Tasks"
+            count={tasks.filter(t => t.status === 'active').length}
+            onClick={() => setTasksSheetOpen(true)}
+          >
+            <ListChecks className="w-3.5 h-3.5" />
+          </HeaderIcon>
+          <HeaderIcon
+            label="Calendar"
+            onClick={() => setCalendarSheetOpen(true)}
+          >
+            <CalendarDays className="w-3.5 h-3.5" />
+          </HeaderIcon>
+          <HeaderIcon
+            label="Insights"
+            badge={
+              insights.energy.shift_recommended ||
+              insights.capacity.reduce_recommended ||
+              insights.capacity.raise_recommended ||
+              insights.missed.length > 0
+            }
+            onClick={() => setInsightsSheetOpen(true)}
+          >
+            <TrendingUp className="w-3.5 h-3.5" />
+          </HeaderIcon>
+          <div className="w-px h-5 bg-border/60 mx-1" />
+          <HeaderIcon
+            label="Theme"
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            className="w-8 h-8 rounded-lg text-muted-foreground/60 hover:text-foreground hover:bg-secondary/40 flex items-center justify-center transition-colors"
-            title="Toggle theme"
-            aria-label="Toggle theme"
           >
             {theme === 'dark' ? (
               <Sun className="w-3.5 h-3.5" />
             ) : (
               <Moon className="w-3.5 h-3.5" />
             )}
-          </button>
-          <button
-            onClick={() => setSettingsOpen(true)}
-            className="w-8 h-8 rounded-lg text-muted-foreground/60 hover:text-foreground hover:bg-secondary/40 flex items-center justify-center transition-colors"
-            title="Settings"
-            aria-label="Settings"
-          >
+          </HeaderIcon>
+          <HeaderIcon label="Settings" onClick={() => setSettingsOpen(true)}>
             <Settings className="w-3.5 h-3.5" />
-          </button>
+          </HeaderIcon>
         </div>
       </header>
 
@@ -330,6 +386,31 @@ const Index = () => {
           tasks={tasks}
           selectedDate={selectedDate}
           onSelectDate={setSelectedDate}
+        />
+
+        <DeadlinesStrip
+          tasks={tasks}
+          onTapTask={t => {
+            const days =
+              t.deadline
+                ? Math.ceil(
+                    (new Date(t.deadline).getTime() - now.getTime()) /
+                      (1000 * 60 * 60 * 24)
+                  )
+                : 0;
+            const when =
+              days < 0
+                ? `${Math.abs(days)} days ago`
+                : days === 0
+                ? 'today'
+                : days === 1
+                ? 'tomorrow'
+                : `in ${days} days`;
+            const firstWord = t.title.split(/\s+/)[0];
+            pushAxis(
+              `${t.title} — due ${when} · ${t.total_duration}m · p${t.priority}. Say "I finished ${firstWord}" or "delete ${firstWord}".`
+            );
+          }}
         />
 
         <NowCard
@@ -407,8 +488,122 @@ const Index = () => {
         onDisconnectAccount={disconnectAccount}
         onToggleCalendar={toggleCalendar}
       />
+
+      {/* Three lenses on the home surface — each accessible 1-tap from
+          the header AND via composer commands ("show tasks", etc.) */}
+      <TasksSheet
+        open={tasksSheetOpen}
+        onClose={() => setTasksSheetOpen(false)}
+        tasks={tasks}
+        onUpdate={t => {
+          updateTask(t.id, t);
+          setTimeout(() => rebuild({ silent: true }), 50);
+          toast.success('Task updated');
+        }}
+        onDelete={id => {
+          deleteTask(id);
+          setTimeout(() => rebuild({ silent: true }), 50);
+          toast.success('Task deleted');
+        }}
+        onFocusComposer={() => {
+          // Composer auto-focuses on close + a tiny delay so the sheet
+          // animation completes first.
+          setTimeout(() => {
+            const ev = new KeyboardEvent('keydown', { key: '/', metaKey: true });
+            window.dispatchEvent(ev);
+          }, 220);
+        }}
+      />
+
+      <CalendarSheet
+        open={calendarSheetOpen}
+        onClose={() => setCalendarSheetOpen(false)}
+        blocks={blocks}
+        tasks={tasks}
+        settings={settings}
+        onMoveBlock={moveBlock}
+        onResizeBlock={resizeBlock}
+        onLockBlock={lockBlock}
+        onUnlockBlock={unlockBlock}
+        onDeleteBlock={deleteBlock}
+        onMarkDone={id => markBlockDone(id, 'confirmed')}
+        onMarkSkipped={markBlockSkipped}
+        onQuickAdd={(date, time) => {
+          // Closing the sheet, focus composer with a fixed-time stub
+          setCalendarSheetOpen(false);
+          const hh = time.slice(0, 5);
+          pushAxis(
+            `Tap below to compose — try "Task at ${hh} on ${date.slice(5)}".`
+          );
+        }}
+      />
+
+      <WeeklyRetrospectiveSheet
+        open={insightsSheetOpen}
+        onClose={() => setInsightsSheetOpen(false)}
+        energy={insights.energy}
+        capacity={insights.capacity}
+        dayShape={insights.dayShape}
+        missed={insights.missed}
+        digest={insights.digest}
+        onApplyEnergy={() => {
+          applyLearnedDeepWindow();
+          toast.success('Deep window updated', {
+            description: insights.energy.reason,
+          });
+        }}
+        onApplyCapacity={() => {
+          applyLearnedCap();
+          toast.success(
+            `Daily cap set to ${insights.capacity.suggested_cap_hours}h`,
+            { description: insights.capacity.reason }
+          );
+        }}
+        onJumpToTask={() => {
+          // From the retro, jumping to a task = open the inventory sheet.
+          setInsightsSheetOpen(false);
+          setTasksSheetOpen(true);
+        }}
+      />
     </div>
   );
 };
+
+// ─────────────────────────────────────────────────────────────────────────
+//  Header icon — used in the top-right action cluster.
+// ─────────────────────────────────────────────────────────────────────────
+
+function HeaderIcon({
+  label,
+  count,
+  badge,
+  onClick,
+  children,
+}: {
+  label: string;
+  count?: number;
+  badge?: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      title={label}
+      aria-label={label}
+      className="relative w-8 h-8 rounded-lg text-muted-foreground/60 hover:text-foreground hover:bg-secondary/40 flex items-center justify-center transition-colors"
+    >
+      {children}
+      {typeof count === 'number' && count > 0 && (
+        <span className="absolute -top-0.5 -right-0.5 min-w-[14px] h-[14px] px-1 rounded-full bg-primary/90 text-primary-foreground text-[8px] font-mono font-semibold flex items-center justify-center tabular-nums">
+          {count > 99 ? '99+' : count}
+        </span>
+      )}
+      {badge && (
+        <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-amber-400 ring-2 ring-background" />
+      )}
+    </button>
+  );
+}
 
 export default Index;

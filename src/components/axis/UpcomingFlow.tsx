@@ -25,19 +25,43 @@ interface UpcomingFlowProps {
 }
 
 const ROW_HEIGHT = 64; // px per hour
-const HOURS_AHEAD = 12;
+const MAX_HOURS = 12;
+const MIN_HOURS = 4;
 
 export function UpcomingFlow({ blocks, tasks, now, onTapBlock }: UpcomingFlowProps) {
   const startHour = now.getHours();
-  const windowEnd = addHours(now, HOURS_AHEAD);
 
-  const windowBlocks = useMemo(() => {
-    return blocks.filter(b => {
-      const s = new Date(b.start_time);
-      const e = new Date(b.end_time);
-      return e > now && s < windowEnd;
-    });
-  }, [blocks, now, windowEnd]);
+  // Pull blocks within the maximum window first; we'll shrink the
+  // rendered window if the day has fewer blocks ahead.
+  const maxWindowEnd = addHours(now, MAX_HOURS);
+  const candidateBlocks = useMemo(() => {
+    return blocks
+      .filter(b => {
+        const s = new Date(b.start_time);
+        const e = new Date(b.end_time);
+        return e > now && s < maxWindowEnd;
+      })
+      .sort((a, b) => a.start_time.localeCompare(b.start_time));
+  }, [blocks, now, maxWindowEnd]);
+
+  // Adaptive height: render from now to (last block + 1h buffer), with a
+  // floor at MIN_HOURS so the surface doesn't look empty even on quiet
+  // afternoons.
+  const HOURS_AHEAD = useMemo(() => {
+    if (candidateBlocks.length === 0) return MIN_HOURS;
+    const lastEnd = new Date(
+      candidateBlocks[candidateBlocks.length - 1].end_time
+    );
+    const hoursToLast = Math.ceil(
+      (lastEnd.getTime() - now.getTime()) / 3_600_000
+    );
+    return Math.min(MAX_HOURS, Math.max(MIN_HOURS, hoursToLast + 1));
+  }, [candidateBlocks, now]);
+
+  const windowEnd = addHours(now, HOURS_AHEAD);
+  const windowBlocks = candidateBlocks.filter(b => {
+    return new Date(b.start_time) < windowEnd;
+  });
 
   const taskById = useMemo(() => {
     const m = new Map<string, Task>();
@@ -49,7 +73,9 @@ export function UpcomingFlow({ blocks, tasks, now, onTapBlock }: UpcomingFlowPro
     <div className="rounded-2xl border border-border bg-card overflow-hidden">
       <div className="px-5 py-3 border-b border-border/60 flex items-center justify-between">
         <span className="text-[10px] font-mono uppercase tracking-[0.22em] text-muted-foreground/60">
-          the next {HOURS_AHEAD} hours
+          {windowBlocks.length === 0
+            ? 'nothing soon'
+            : `next ${HOURS_AHEAD} hour${HOURS_AHEAD === 1 ? '' : 's'}`}
         </span>
         <span className="text-[10px] font-mono text-muted-foreground/45">
           {windowBlocks.length} block{windowBlocks.length === 1 ? '' : 's'}

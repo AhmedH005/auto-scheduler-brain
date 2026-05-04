@@ -115,16 +115,20 @@ export function WeekRibbon({
                   const topPct = (minStart / (24 * 60)) * 100;
                   const heightPct = ((minEnd - minStart) / (24 * 60)) * 100;
                   const color = getTaskColor(task.color ?? task.calendar_color);
+                  // Convert percentage height to absolute pixels, then clamp:
+                  // very-short blocks become tiny invisible slivers otherwise.
+                  const heightPx = Math.max(4, (heightPct / 100) * COL_HEIGHT);
                   return (
                     <div
                       key={b.id}
-                      className="absolute left-0 right-0"
+                      className="absolute left-0.5 right-0.5 rounded-sm"
                       style={{
                         top: `${topPct}%`,
-                        height: `${Math.max(2, heightPct)}%`,
+                        height: heightPx,
                         background: color.border,
-                        opacity: b.completed_at ? 0.4 : 0.78,
+                        opacity: b.completed_at ? 0.45 : 0.92,
                       }}
+                      title={task.title}
                     />
                   );
                 })}

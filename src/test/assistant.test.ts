@@ -91,6 +91,33 @@ describe('interpret — queries', () => {
   });
 });
 
+describe('interpret — show_* lens commands', () => {
+  it('routes "show tasks" to show_tasks', () => {
+    expect(interpret('show tasks').intent.kind).toBe('show_tasks');
+  });
+  it('routes "open inbox" to show_tasks', () => {
+    expect(interpret('open inbox').intent.kind).toBe('show_tasks');
+  });
+  it('routes "show calendar" to show_calendar', () => {
+    expect(interpret('show calendar').intent.kind).toBe('show_calendar');
+  });
+  it('routes "open week" to show_calendar', () => {
+    expect(interpret('open week').intent.kind).toBe('show_calendar');
+  });
+  it('routes "show insights" to show_insights', () => {
+    expect(interpret('show insights').intent.kind).toBe('show_insights');
+  });
+  it('routes "open retro" to show_insights', () => {
+    expect(interpret('open retro').intent.kind).toBe('show_insights');
+  });
+  it('routes "show settings" to show_settings', () => {
+    expect(interpret('show settings').intent.kind).toBe('show_settings');
+  });
+  it('routes "connect google" to show_integrations', () => {
+    expect(interpret('connect google').intent.kind).toBe('show_integrations');
+  });
+});
+
 describe('interpret — fallback to add', () => {
   it('treats novel input as an add', () => {
     const t = interpret('Read research paper 90min by Friday');
