@@ -27,21 +27,18 @@ import {
   Calendar,
   LayoutGrid,
   Plus,
-  Sun,
-  Moon,
-  Flame,
+  PanelLeft,
 } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
 
 type CalendarView = 'day' | 'week' | 'month';
-export type AppMode = 'now' | 'plan';
 
 interface TopBarProps {
-  mode: AppMode;
   view: CalendarView;
   selectedDate: Date;
   hasInsights: boolean;
-  onModeChange: (mode: AppMode) => void;
+  onSidebarToggle: () => void;
+  sidebarOpen: boolean;
   onViewChange: (view: CalendarView) => void;
   onDateChange: (date: Date) => void;
   onJumpToToday: () => void;
@@ -52,11 +49,11 @@ interface TopBarProps {
 }
 
 export function TopBar({
-  mode,
   view,
   selectedDate,
   hasInsights,
-  onModeChange,
+  onSidebarToggle,
+  sidebarOpen,
   onViewChange,
   onDateChange,
   onJumpToToday,
@@ -88,80 +85,80 @@ export function TopBar({
       className="shrink-0 h-11 flex items-center gap-2 px-3 border-b border-border bg-card/40 backdrop-blur"
       role="banner"
     >
-      {/* ── Brand ──────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-2 shrink-0 min-w-0 mr-2">
-        <div className="w-6 h-6 rounded-sm bg-primary/15 flex items-center justify-center">
-          <Brain className="w-3.5 h-3.5 text-primary" strokeWidth={2.2} />
+      {/* ── Brand + sidebar toggle ─────────────────────────────────── */}
+      <div className="flex items-center gap-1 shrink-0 min-w-0 mr-2">
+        <button
+          onClick={onSidebarToggle}
+          className="w-7 h-7 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
+          aria-label={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+          title={sidebarOpen ? 'Collapse sidebar (⌘\\)' : 'Expand sidebar (⌘\\)'}
+        >
+          <PanelLeft className="w-3.5 h-3.5" />
+        </button>
+        <div className="flex items-center gap-2 ml-1">
+          <div className="w-6 h-6 rounded-sm bg-primary/15 flex items-center justify-center">
+            <Brain className="w-3.5 h-3.5 text-primary" strokeWidth={2.2} />
+          </div>
+          <span className="text-display text-foreground tracking-tight">AXIS</span>
         </div>
-        <span className="text-display text-foreground tracking-tight">AXIS</span>
       </div>
 
-      {/* ── Mode toggle (the new primary navigation) ──────────────── */}
-      <div className="flex items-center gap-0.5 p-0.5 rounded-md bg-secondary/40 border border-border/60 shrink-0">
-        <ModeButton active={mode === 'now'} onClick={() => onModeChange('now')} icon={Flame} label="Now" hint="N" />
-        <ModeButton active={mode === 'plan'} onClick={() => onModeChange('plan')} icon={CalendarDays} label="Plan" hint="P" />
-      </div>
-
-      {/* ── Center: date nav + view switcher (Plan mode only) ───── */}
+      {/* ── Center: date nav + view switcher ──────────────────────── */}
       <div className="flex-1 flex items-center justify-center gap-1.5 min-w-0">
-        {mode === 'plan' ? (
-          <>
-            <div className="flex items-center gap-0.5 mr-1">
-              <button
-                onClick={() => nav(-1)}
-                className="w-7 h-7 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
-                aria-label={`Previous ${view}`}
-                title={`Previous ${view}`}
-              >
-                <ChevronLeft className="w-3.5 h-3.5" />
-              </button>
-              <button
-                onClick={onJumpToToday}
-                className="px-2.5 h-7 text-body font-medium rounded text-foreground hover:bg-secondary/60 transition-colors"
-                title="Jump to today (T)"
-              >
-                Today
-              </button>
-              <button
-                onClick={() => nav(1)}
-                className="w-7 h-7 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
-                aria-label={`Next ${view}`}
-                title={`Next ${view}`}
-              >
-                <ChevronRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
+        <div className="flex items-center gap-0.5 mr-1">
+          <button
+            onClick={() => nav(-1)}
+            className="w-7 h-7 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
+            aria-label={`Previous ${view}`}
+            title={`Previous ${view}`}
+          >
+            <ChevronLeft className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={onJumpToToday}
+            className="px-2.5 h-7 text-body font-medium rounded text-foreground hover:bg-secondary/60 transition-colors"
+            title="Jump to today (T)"
+          >
+            Today
+          </button>
+          <button
+            onClick={() => nav(1)}
+            className="w-7 h-7 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
+            aria-label={`Next ${view}`}
+            title={`Next ${view}`}
+          >
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
 
-            <span className="text-body text-foreground/70 truncate min-w-0 px-1">{dateLabel}</span>
+        <span className="text-body text-foreground/70 truncate min-w-0 px-1">{dateLabel}</span>
 
-            <div className="flex items-center gap-0.5 ml-1 p-0.5 rounded bg-secondary/40 border border-border/60">
-              {(
-                [
-                  { key: 'day' as const, label: 'D', icon: CalendarDays, hint: '1' },
-                  { key: 'week' as const, label: 'W', icon: Calendar, hint: '2' },
-                  { key: 'month' as const, label: 'M', icon: LayoutGrid, hint: '3' },
-                ]
-              ).map(({ key, label, icon: Icon, hint }) => {
-                const active = view === key;
-                return (
-                  <button
-                    key={key}
-                    onClick={() => onViewChange(key)}
-                    className={`group relative px-2 h-6 rounded-sm flex items-center gap-1 text-[11px] font-medium transition-colors ${
-                      active
-                        ? 'bg-card text-foreground shadow-sm'
-                        : 'text-muted-foreground hover:text-foreground'
-                    }`}
-                    title={`${label === 'D' ? 'Day' : label === 'W' ? 'Week' : 'Month'} view (${hint})`}
-                  >
-                    <Icon className="w-3 h-3" />
-                    <span>{label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </>
-        ) : null}
+        <div className="flex items-center gap-0.5 ml-1 p-0.5 rounded bg-secondary/40 border border-border/60">
+          {(
+            [
+              { key: 'day' as const, label: 'D', icon: CalendarDays, hint: '1' },
+              { key: 'week' as const, label: 'W', icon: Calendar, hint: '2' },
+              { key: 'month' as const, label: 'M', icon: LayoutGrid, hint: '3' },
+            ]
+          ).map(({ key, label, icon: Icon, hint }) => {
+            const active = view === key;
+            return (
+              <button
+                key={key}
+                onClick={() => onViewChange(key)}
+                className={`group relative px-2 h-6 rounded-sm flex items-center gap-1 text-[11px] font-medium transition-colors ${
+                  active
+                    ? 'bg-card text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+                title={`${label === 'D' ? 'Day' : label === 'W' ? 'Week' : 'Month'} view (${hint})`}
+              >
+                <Icon className="w-3 h-3" />
+                <span>{label}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* ── Right cluster: actions + menus ─────────────────────────── */}
@@ -218,35 +215,6 @@ export function TopBar({
 // ─────────────────────────────────────────────────────────────────────────
 //  Theme button — refactored from the old ThemeSwitcher to be lighter
 // ─────────────────────────────────────────────────────────────────────────
-
-function ModeButton({
-  active,
-  onClick,
-  icon: Icon,
-  label,
-  hint,
-}: {
-  active: boolean;
-  onClick: () => void;
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  hint: string;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`group relative px-2.5 h-7 rounded flex items-center gap-1.5 text-body font-medium transition-all ${
-        active
-          ? 'bg-card text-foreground shadow-sm'
-          : 'text-muted-foreground hover:text-foreground'
-      }`}
-      title={`${label} (${hint})`}
-    >
-      <Icon className={`w-3.5 h-3.5 ${active ? 'text-primary' : ''}`} />
-      <span>{label}</span>
-    </button>
-  );
-}
 
 function ThemeButton() {
   const { theme, toggleTheme } = useTheme();
