@@ -16,6 +16,7 @@ import { WeekView } from '@/components/WeekView';
 import { DayView } from '@/components/DayView';
 import { MonthView } from '@/components/MonthView';
 import { QuickAddModal } from '@/components/QuickAddModal';
+import { TaskEditSheet } from '@/components/TaskEditSheet';
 import { SettingsSheet } from '@/components/SettingsSheet';
 import { IntegrationsSheet } from '@/components/IntegrationsSheet';
 import { OnboardingFlow } from '@/components/OnboardingFlow';
@@ -247,11 +248,11 @@ const Index = () => {
   };
 
   const handleQuickAdd = (date: string, time: string) => {
-    setQuickAddDate(date);
-    setQuickAddTime(time);
-    setEditingTask(null);
-    setSidebarOpen(true);
-    setSidePanel('add');
+    // Opens QuickAdd modal pre-filled with "Task at <time>" so the parser
+    // sees it as a fixed-time entry. The user can keep typing to refine.
+    const hh = time.slice(0, 5);
+    setQuickAddInitial(`Task at ${hh}`);
+    setQuickAddOpen(true);
   };
 
   const clearQuickAdd = () => {
@@ -313,9 +314,6 @@ const Index = () => {
           onUnlockBlock={unlockBlock}
           onEditTask={(t) => {
             setEditingTask(t);
-            setAppMode('plan');
-            setSidebarOpen(true);
-            setSidePanel('edit');
           }}
           onOpenRetrospective={() => setRetroOpen(true)}
         />
@@ -347,7 +345,11 @@ const Index = () => {
               size="sm"
               variant="ghost"
               className="h-7 px-2"
-              onClick={() => { clearQuickAdd(); setSidePanel('add'); }}
+              onClick={() => {
+                clearQuickAdd();
+                setQuickAddInitial(undefined);
+                setQuickAddOpen(true);
+              }}
               title="Add task (A)"
               aria-label="Add task"
             >
@@ -359,35 +361,14 @@ const Index = () => {
             {sidePanel === 'tasks' && (
               <TaskList
                 tasks={tasks}
-                onEdit={t => { setEditingTask(t); setSidePanel('edit'); }}
+                onEdit={t => { setEditingTask(t); }}
                 onDelete={handleDeleteTask}
               />
             )}
-            {sidePanel === 'add' && (
-              <TaskForm
-                onSubmit={task => { handleAddTask(task); clearQuickAdd(); }}
-                onClose={() => { setSidePanel('tasks'); clearQuickAdd(); }}
-                existingBlocks={blocks}
-                existingTasks={tasks}
-                quickAddDate={quickAddDate}
-                quickAddTime={quickAddTime}
-                getDurationSuggestion={getDurationSuggestion}
-              />
-            )}
-            {sidePanel === 'edit' && editingTask && (
-              <TaskForm
-                initialTask={editingTask}
-                onSubmit={handleUpdateTask}
-                onClose={() => { setEditingTask(null); setSidePanel('tasks'); }}
-                existingBlocks={blocks}
-                existingTasks={tasks}
-                getDurationSuggestion={getDurationSuggestion}
-              />
-            )}
-            {/* Settings + Integrations now render as right-slide Sheets at
-                the page root — they no longer take over the task-list panel.
-                See SettingsSheet / IntegrationsSheet at the bottom of this
-                component. */}
+            {/* Add and Edit no longer render in the sidebar. Add → QuickAdd
+                modal (⌘N or +Task). Edit → TaskEditSheet floating on the right.
+                Settings + Integrations also render as right-slide Sheets at
+                the page root — see the bottom of this component. */}
           </div>
 
           {/* Schedule health summary — only renders when there's something to flag */}
@@ -480,8 +461,6 @@ const Index = () => {
             const task = tasks.find(t => t.id === id);
             if (!task) return;
             setEditingTask(task);
-            setSidebarOpen(true);
-            setSidePanel('edit');
           }}
           onOpenRetrospective={() => setRetroOpen(true)}
         />
@@ -506,7 +485,7 @@ const Index = () => {
               onMoveBlock={moveBlock} onResizeBlock={resizeBlock}
               onLockBlock={lockBlock} onUnlockBlock={unlockBlock}
               onDeleteBlock={deleteBlock} onQuickAdd={handleQuickAdd}
-              onEditTask={t => { setEditingTask(t); setSidebarOpen(true); setSidePanel('edit'); }}
+              onEditTask={t => { setEditingTask(t); }}
             />
           )}
           {calendarView === 'week' && (
@@ -515,7 +494,7 @@ const Index = () => {
               onMoveBlock={moveBlock} onResizeBlock={resizeBlock}
               onLockBlock={lockBlock} onUnlockBlock={unlockBlock}
               onDeleteBlock={deleteBlock} onQuickAdd={handleQuickAdd}
-              onEditTask={t => { setEditingTask(t); setSidebarOpen(true); setSidePanel('edit'); }}
+              onEditTask={t => { setEditingTask(t); }}
               onMarkDone={(id, mins) => {
                 if (mins === -1) {
                   markBlockReopen(id);
@@ -677,10 +656,19 @@ const Index = () => {
           const task = tasks.find(t => t.id === id);
           if (!task) return;
           setEditingTask(task);
-          setSidebarOpen(true);
-          setSidePanel('edit');
           setRetroOpen(false);
         }}
+      />
+
+      {/* Task edit — slide-in sheet that floats over the canvas */}
+      <TaskEditSheet
+        open={editingTask !== null}
+        task={editingTask}
+        existingBlocks={blocks}
+        existingTasks={tasks}
+        onClose={() => setEditingTask(null)}
+        onSubmit={(t) => handleUpdateTask(t)}
+        getDurationSuggestion={getDurationSuggestion}
       />
 
       {/* Command palette — ⌘K to open */}
@@ -739,8 +727,8 @@ const Index = () => {
         }}
         onAddTask={() => {
           clearQuickAdd();
-          setSidebarOpen(true);
-          setSidePanel('add');
+          setQuickAddInitial(undefined);
+          setQuickAddOpen(true);
         }}
         onOpenSettings={() => setSettingsOpen(true)}
         onOpenIntegrations={() => setIntegrationsOpen(true)}
@@ -753,8 +741,6 @@ const Index = () => {
           const task = tasks.find(t => t.id === id);
           if (!task) return;
           setEditingTask(task);
-          setSidebarOpen(true);
-          setSidePanel('edit');
         }}
         onToggleSidebar={() => setSidebarOpen(s => !s)}
       />
