@@ -45,6 +45,7 @@ import React, { useMemo, useState } from 'react';
 import { format, addDays, nextFriday } from 'date-fns';
 import {
   Task,
+  Subtask,
   EnergyIntensity,
   SchedulingMode,
   ExecutionStyle,
@@ -74,7 +75,9 @@ import {
   ChevronDown,
   Brain,
   AlarmClock,
-  Split,
+  ListChecks,
+  Plus,
+  X as XIcon,
 } from 'lucide-react';
 import { TASK_COLORS, DEFAULT_COLOR_ID } from '@/lib/taskColors';
 
@@ -167,9 +170,16 @@ export function TaskForm({
   const [energy, setEnergy] = useState<EnergyIntensity>(
     initialTask?.energy_intensity || 'moderate'
   );
-  const [execStyle, setExecStyle] = useState<ExecutionStyle>(
+  // The user used to pick this manually (Single / Split / Auto-chunk).
+  // We now auto-decide on save: duration ≥ 60min → auto_chunk, else single.
+  // Existing tasks keep whatever they had until they get edited again.
+  const [execStyle] = useState<ExecutionStyle>(
     initialTask?.execution_style || 'auto_chunk'
   );
+
+  // Subtasks (Things 3 / Linear / Notion pattern) — display-only on the
+  // engine side for now; the user just gets a checklist they can tick off.
+  const [subtasks, setSubtasks] = useState(initialTask?.subtasks ?? []);
 
   // Recurrence — collapsed into a single preset enum for the dropdown.
   // 'custom' opens the interval input below.
@@ -253,7 +263,13 @@ export function TaskForm({
       window_end: mode === 'anchor' ? anchorEnd || null : null,
       start_datetime: startDatetime,
       end_datetime: endDatetime,
-      execution_style: mode === 'fixed' || mode === 'anchor' ? 'single' : execStyle,
+      // Auto-decide chunking based on duration.
+      execution_style:
+        mode === 'fixed' || mode === 'anchor'
+          ? 'single'
+          : duration >= 60
+          ? 'auto_chunk'
+          : 'single',
       is_recurring: mode === 'fixed' ? false : isRecurring,
       recurrence_pattern: isRecurring && mode !== 'fixed' ? recPattern : null,
       recurrence_interval: recInterval,
@@ -265,6 +281,8 @@ export function TaskForm({
         provider_event_id: initialTask.provider_event_id,
       }),
       ...(initialTask?.calendar_color && { calendar_color: initialTask.calendar_color }),
+      ...(subtasks.length > 0 && { subtasks }),
+      ...(snoozeUntil && { snooze_until: snoozeUntil }),
     };
     onSubmit(task);
   };
@@ -305,6 +323,9 @@ export function TaskForm({
             }}
           />
         </div>
+
+        {/* Subtasks (Things 3 / Linear / Notion checklist pattern) */}
+        <SubtaskList value={subtasks} onChange={setSubtasks} />
 
         <Divider />
 
@@ -471,15 +492,19 @@ export function TaskForm({
             <div className="pb-2 space-y-0.5">
               {/* DEEP FOCUS — single toggle (Cal Newport framing) */}
               <PropertyRow icon={Brain} label="Deep focus">
-                <DeepFocusToggle value={energy} onChange={setEnergy} />
+                <ToggleSwitch
+                  checked={energy === 'deep'}
+                  onChange={on => setEnergy(on ? 'deep' : 'moderate')}
+                  onLabel="Protect peak hours"
+                  offLabel="Standard"
+                  tone="violet"
+                  title="When on, the engine prioritizes your peak focus window for this task."
+                />
               </PropertyRow>
 
-              {/* SPLITTABLE — replaces the old "Execution Style" dropdown */}
-              {mode === 'flexible' && (
-                <PropertyRow icon={Split} label="Splittable">
-                  <SplittableToggle value={execStyle} onChange={setExecStyle} />
-                </PropertyRow>
-              )}
+              {/* SPLITTABLE removed from UI — engine auto-decides:
+                  duration ≥ 60min → auto_chunk, otherwise → single. The
+                  toggle was rarely flipped; better to have a smart default. */}
 
               {/* SNOOZE UNTIL — Reclaim/Motion pattern. Staged for engine wiring.
                   Use cases:
@@ -622,7 +647,7 @@ function Segmented<T extends string>({
   }[];
 }) {
   return (
-    <div className="inline-flex items-center p-0.5 rounded-md bg-secondary/40 border border-border ml-auto">
+    <div className="inline-flex items-center gap-1 ml-auto">
       {options.map(opt => {
         const active = value === opt.value;
         return (
@@ -632,13 +657,13 @@ function Segmented<T extends string>({
             onClick={() => onChange(opt.value)}
             title={opt.hint}
             className={
-              'inline-flex items-center gap-1 px-2.5 h-6 rounded-sm text-[11px] font-medium transition-all ' +
+              'inline-flex items-center gap-1.5 px-3 h-8 rounded-lg text-[12px] font-medium transition-all border ' +
               (active
-                ? 'bg-card text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground')
+                ? 'bg-primary text-primary-foreground border-primary shadow-sm shadow-primary/25'
+                : 'bg-secondary/30 text-foreground/70 border-border hover:border-border hover:bg-secondary/55 hover:text-foreground')
             }
           >
-            {opt.icon && <opt.icon className="w-2.5 h-2.5" />}
+            {opt.icon && <opt.icon className="w-3 h-3" />}
             {opt.label}
           </button>
         );
@@ -656,11 +681,16 @@ function NamedPriorityPills({
   value: number;
   onChange: (v: number) => void;
 }) {
-  const levels: { num: number; label: string; tone: string }[] = [
-    { num: 2, label: 'Low', tone: 'bg-muted text-foreground' },
-    { num: 3, label: 'Medium', tone: 'bg-primary text-primary-foreground' },
-    { num: 4, label: 'High', tone: 'bg-amber-500/85 text-white' },
-    { num: 5, label: 'Urgent', tone: 'bg-destructive text-white' },
+  const levels: {
+    num: number;
+    label: string;
+    activeBg: string;
+    dot: string;
+  }[] = [
+    { num: 2, label: 'Low', activeBg: 'bg-muted text-foreground border-muted-foreground/30', dot: 'bg-foreground/40' },
+    { num: 3, label: 'Medium', activeBg: 'bg-primary text-primary-foreground border-primary shadow-sm shadow-primary/25', dot: 'bg-primary' },
+    { num: 4, label: 'High', activeBg: 'bg-amber-500 text-white border-amber-500 shadow-sm shadow-amber-500/25', dot: 'bg-amber-500' },
+    { num: 5, label: 'Urgent', activeBg: 'bg-destructive text-white border-destructive shadow-sm shadow-destructive/25', dot: 'bg-destructive' },
   ];
   return (
     <div className="inline-flex items-center gap-1 ml-auto">
@@ -672,12 +702,17 @@ function NamedPriorityPills({
             type="button"
             onClick={() => onChange(lv.num)}
             className={
-              'px-2.5 h-7 rounded-md text-[11px] font-medium transition-all ' +
+              'inline-flex items-center gap-1.5 px-3 h-8 rounded-lg text-[12px] font-medium transition-all border ' +
               (active
-                ? `${lv.tone} shadow-sm scale-[1.02]`
-                : 'bg-secondary/40 text-muted-foreground/80 hover:bg-secondary/70 hover:text-foreground')
+                ? lv.activeBg
+                : 'bg-secondary/30 text-foreground/70 border-border hover:bg-secondary/55 hover:text-foreground')
             }
           >
+            <span
+              className={
+                'w-1.5 h-1.5 rounded-full ' + (active ? 'bg-current/80' : lv.dot)
+              }
+            />
             {lv.label}
           </button>
         );
@@ -759,10 +794,10 @@ function DeadlineControl({
             type="button"
             onClick={() => onChange(c.value)}
             className={
-              'px-2 h-7 rounded-md text-[11px] font-medium transition-colors ' +
+              'px-3 h-8 rounded-lg text-[12px] font-medium transition-all border ' +
               (active
-                ? 'bg-primary/15 text-primary border border-primary/30'
-                : 'bg-secondary/40 text-muted-foreground/75 hover:bg-secondary/70 hover:text-foreground border border-transparent')
+                ? 'bg-primary text-primary-foreground border-primary shadow-sm shadow-primary/25'
+                : 'bg-secondary/30 text-foreground/70 border-border hover:bg-secondary/55 hover:text-foreground')
             }
           >
             {c.label}
@@ -773,75 +808,171 @@ function DeadlineControl({
         type="date"
         value={value}
         onChange={e => onChange(e.target.value)}
-        className="bg-secondary/50 border-border font-mono text-[11px] h-7 w-36"
+        className="bg-secondary/30 border-border text-[12px] h-8 w-36 ml-1"
       />
     </div>
   );
 }
 
-// Single toggle replacing the 3-level energy picker. Off = standard
-// (engine receives 'moderate'), On = deep focus (engine receives 'deep').
-// Existing 'light' tasks display as Off (no migration on load).
-function DeepFocusToggle({
-  value,
+// True iOS-style switch for the Deep focus toggle.
+function ToggleSwitch({
+  checked,
   onChange,
+  onLabel = 'On',
+  offLabel = 'Off',
+  tone = 'primary',
+  title,
 }: {
-  value: EnergyIntensity;
-  onChange: (v: EnergyIntensity) => void;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  onLabel?: string;
+  offLabel?: string;
+  tone?: 'primary' | 'violet';
+  title?: string;
 }) {
-  const isDeep = value === 'deep';
+  const toneOn =
+    tone === 'violet'
+      ? 'bg-violet-500 border-violet-500'
+      : 'bg-primary border-primary';
   return (
     <button
       type="button"
-      onClick={() => onChange(isDeep ? 'moderate' : 'deep')}
+      onClick={() => onChange(!checked)}
       role="switch"
-      aria-checked={isDeep}
+      aria-checked={checked}
+      title={title}
       className={
-        'relative inline-flex items-center h-7 px-3 rounded-md text-[11px] font-medium transition-all border ml-auto ' +
-        (isDeep
-          ? 'bg-violet-500/20 text-violet-300 border-violet-500/40'
-          : 'bg-secondary/40 text-muted-foreground/75 border-border hover:bg-secondary/60')
-      }
-      title={
-        isDeep
-          ? 'Engine prioritizes peak focus hours'
-          : 'Standard task — schedules anywhere'
+        'inline-flex items-center gap-2 h-8 pl-1 pr-3 rounded-full border transition-all ' +
+        (checked
+          ? `${toneOn} text-white shadow-sm`
+          : 'bg-secondary/30 border-border text-foreground/65 hover:bg-secondary/55')
       }
     >
-      {isDeep ? 'On — protect peak hours' : 'Off — standard'}
+      <span
+        className={
+          'w-6 h-6 rounded-full transition-transform shadow-sm ' +
+          (checked ? 'bg-white translate-x-0' : 'bg-foreground/55 -translate-x-0')
+        }
+      />
+      <span className="text-[12px] font-medium">
+        {checked ? onLabel : offLabel}
+      </span>
     </button>
   );
 }
 
-// Replaces the old 3-option execution-style dropdown.
-function SplittableToggle({
+// ─── Subtask list — Things 3 / Linear / Notion checklist pattern ──
+
+function SubtaskList({
   value,
   onChange,
 }: {
-  value: ExecutionStyle;
-  onChange: (v: ExecutionStyle) => void;
+  value: Subtask[];
+  onChange: (next: Subtask[]) => void;
 }) {
-  const splittable = value !== 'single';
+  const [draft, setDraft] = useState('');
+
+  const addSubtask = () => {
+    const t = draft.trim();
+    if (!t) return;
+    onChange([
+      ...value,
+      { id: `sub-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, title: t, done: false },
+    ]);
+    setDraft('');
+  };
+
+  const toggleDone = (id: string) =>
+    onChange(value.map(s => (s.id === id ? { ...s, done: !s.done } : s)));
+
+  const removeSubtask = (id: string) =>
+    onChange(value.filter(s => s.id !== id));
+
+  const setTitle = (id: string, title: string) =>
+    onChange(value.map(s => (s.id === id ? { ...s, title } : s)));
+
+  const completed = value.filter(s => s.done).length;
+
   return (
-    <button
-      type="button"
-      onClick={() => onChange(splittable ? 'single' : 'auto_chunk')}
-      role="switch"
-      aria-checked={splittable}
-      className={
-        'relative inline-flex items-center h-7 px-3 rounded-md text-[11px] font-medium transition-all border ml-auto ' +
-        (splittable
-          ? 'bg-primary/15 text-primary border-primary/30'
-          : 'bg-secondary/40 text-muted-foreground/75 border-border hover:bg-secondary/60')
-      }
-      title={
-        splittable
-          ? 'Engine can chunk this across multiple sessions'
-          : 'Engine keeps this as one block'
-      }
-    >
-      {splittable ? 'On — auto-chunk' : 'Off — single block'}
-    </button>
+    <div className="px-6 pb-3 pt-1">
+      {value.length > 0 && (
+        <div className="flex items-center gap-2 mb-2 text-[10px] font-mono uppercase tracking-wider text-muted-foreground/60">
+          <ListChecks className="w-3 h-3" />
+          <span>Subtasks</span>
+          <span className="tabular-nums text-muted-foreground/45">
+            {completed}/{value.length}
+          </span>
+        </div>
+      )}
+      <div className="space-y-1">
+        {value.map(s => (
+          <div
+            key={s.id}
+            className="group flex items-center gap-2 py-1 pl-1 pr-2 rounded-md hover:bg-secondary/25 transition-colors"
+          >
+            <button
+              type="button"
+              onClick={() => toggleDone(s.id)}
+              aria-checked={s.done}
+              role="checkbox"
+              className={
+                'shrink-0 w-4 h-4 rounded border flex items-center justify-center transition-all ' +
+                (s.done
+                  ? 'bg-primary border-primary'
+                  : 'border-muted-foreground/40 hover:border-foreground/70 bg-secondary/30')
+              }
+            >
+              {s.done && (
+                <svg
+                  viewBox="0 0 12 12"
+                  className="w-2.5 h-2.5 text-primary-foreground"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.4"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <polyline points="2 6.5 5 9.5 10 3" />
+                </svg>
+              )}
+            </button>
+            <input
+              value={s.title}
+              onChange={e => setTitle(s.id, e.target.value)}
+              className={
+                'flex-1 bg-transparent text-[13px] focus:outline-none ' +
+                (s.done
+                  ? 'line-through text-muted-foreground/55'
+                  : 'text-foreground/90')
+              }
+            />
+            <button
+              type="button"
+              onClick={() => removeSubtask(s.id)}
+              className="opacity-0 group-hover:opacity-100 text-muted-foreground/55 hover:text-destructive transition-all p-1 rounded"
+              aria-label="Remove subtask"
+            >
+              <XIcon className="w-3 h-3" />
+            </button>
+          </div>
+        ))}
+      </div>
+      <div className="flex items-center gap-2 mt-1 pl-1">
+        <Plus className="w-3 h-3 text-muted-foreground/45 shrink-0" />
+        <input
+          value={draft}
+          onChange={e => setDraft(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              addSubtask();
+            }
+          }}
+          placeholder={value.length === 0 ? 'Break it into steps (optional)…' : 'Add another subtask…'}
+          className="flex-1 bg-transparent text-[13px] text-foreground/85 placeholder:text-muted-foreground/40 focus:outline-none py-1"
+        />
+      </div>
+    </div>
   );
 }
 

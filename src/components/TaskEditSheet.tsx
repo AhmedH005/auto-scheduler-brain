@@ -47,9 +47,10 @@ export function TaskEditSheet({
           ? task!.title
             ? `Updating "${task!.title}"`
             : 'Updating untitled task'
-          : 'Add it to the inbox — axis will place it'
+          : "Add it to the inbox — axis will place it on your calendar"
       }
       size="lg"
+      position="center"
     >
       <TaskForm
         initialTask={task ?? undefined}

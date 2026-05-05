@@ -5,6 +5,12 @@ export type RecurrencePattern = 'daily' | 'weekdays' | 'weekly' | 'custom';
 export type BlockType = 'focus' | 'break';
 export type TaskStatus = 'active' | 'completed' | 'paused';
 
+export interface Subtask {
+  id: string;
+  title: string;
+  done: boolean;
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -26,6 +32,12 @@ export interface Task {
   recurrence_end: string | null; // yyyy-MM-dd
   status: TaskStatus;
   created_at: string;
+  /** Optional checklist of sub-items. Display-only for now — engine doesn't
+   *  schedule sub-items individually. */
+  subtasks?: Subtask[];
+  /** Engine won't schedule the task before this date (yyyy-MM-dd). Useful
+   *  for "wait for W-2 in Jan" / "follow up if no reply by Friday". */
+  snooze_until?: string | null;
   // Present only on tasks synced from external calendar providers
   sync_source?: 'google' | 'microsoft';
   provider_event_id?: string;
