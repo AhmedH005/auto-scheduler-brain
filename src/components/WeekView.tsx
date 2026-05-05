@@ -27,9 +27,12 @@ interface WeekViewProps {
   onMarkSkipped?: (blockId: string) => void;
 }
 
+// Full 24-hour grid — see DayView.tsx for the rationale. Cutting at
+// 06:00–22:00 hid early-morning workouts and late-night work, and any
+// block scheduled outside that window simply didn't render.
 const HOUR_HEIGHT = 60;
-const START_HOUR = 6;
-const END_HOUR = 22;
+const START_HOUR = 0;
+const END_HOUR = 24;
 const TOTAL_HOURS = END_HOUR - START_HOUR;
 const SNAP_MINUTES = 15;
 
@@ -145,11 +148,17 @@ export function WeekView({
     return () => window.removeEventListener('mousedown', handler);
   }, [selectedBlockId]);
 
+  // Smart auto-scroll on mount: target current time − 1h so user sees
+  // what's happening now. Fall back to working-hours start at very
+  // early hours to avoid showing 2 AM by default.
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = (7 - START_HOUR) * HOUR_HEIGHT;
-    }
-  }, []);
+    if (!scrollRef.current) return;
+    const now = new Date();
+    const nowH = now.getHours() + now.getMinutes() / 60;
+    const workStart = parseInt(settings.working_hours_start.split(':')[0], 10) || 8;
+    const targetH = nowH < workStart - 1 ? workStart : Math.max(0, nowH - 1);
+    scrollRef.current.scrollTop = targetH * HOUR_HEIGHT;
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // dragState now tracks originDayIndex (where drag started) and targetDayIndex (where mouse currently is)
   const [dragState, setDragState] = useState<{

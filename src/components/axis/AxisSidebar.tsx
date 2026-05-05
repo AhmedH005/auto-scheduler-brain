@@ -103,16 +103,15 @@ export function AxisSidebar({
 
   const todayIds = new Set(todayTasks.map(t => t.id));
 
+  // Inbox = active backlog not already in Today. Recurring tasks count
+  // (e.g. "Daily standup") so the user can still tap to edit them; the
+  // ↻ icon disambiguates them visually. Cap at 10 for visual stability —
+  // anything beyond that lives in the All Tasks sheet.
   const inboxTasks = useMemo(() => {
     return tasks
-      .filter(
-        t =>
-          t.status === 'active' &&
-          !todayIds.has(t.id) &&
-          !t.is_recurring
-      )
+      .filter(t => t.status === 'active' && !todayIds.has(t.id))
       .sort((a, b) => calculateScore(b) - calculateScore(a))
-      .slice(0, 8);
+      .slice(0, 10);
   }, [tasks, todayIds]);
 
   const dueSoon = useMemo(() => {

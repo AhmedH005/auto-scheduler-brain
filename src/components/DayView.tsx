@@ -22,9 +22,13 @@ interface DayViewProps {
   onEditTask?: (task: Task) => void;
 }
 
+// Full 24-hour grid (Cron / Google Calendar / Apple Calendar / Motion all
+// show the entire day). Cutting at 06:00–22:00 hid early-morning workouts
+// and late-night work for night owls — and any block the engine placed
+// outside that window simply didn't render.
 const HOUR_HEIGHT = 60;
-const START_HOUR = 6;
-const END_HOUR = 22;
+const START_HOUR = 0;
+const END_HOUR = 24;
 const TOTAL_HOURS = END_HOUR - START_HOUR;
 const SNAP_MINUTES = 15;
 
@@ -57,9 +61,18 @@ export function DayView({
   const scrollRef = useRef<HTMLDivElement>(null);
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
 
+  // Smart auto-scroll: land on current time minus 1h so the user sees
+  // "what's happening now" in context. If it's 3 AM, fall back to
+  // working-hours start (no point scrolling to 2 AM by default). Only
+  // runs once on mount.
   useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = (7 - START_HOUR) * HOUR_HEIGHT;
-  }, []);
+    if (!scrollRef.current) return;
+    const now = new Date();
+    const nowH = now.getHours() + now.getMinutes() / 60;
+    const workStart = parseInt(settings.working_hours_start.split(':')[0], 10) || 8;
+    const targetH = nowH < workStart - 1 ? workStart : Math.max(0, nowH - 1);
+    scrollRef.current.scrollTop = targetH * HOUR_HEIGHT;
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!selectedBlockId) return;
