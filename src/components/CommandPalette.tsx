@@ -27,7 +27,6 @@ import {
   AlertOctagon,
   AlertTriangle,
   Clock,
-  Search,
   Sparkles,
   X,
   Coffee,
@@ -136,16 +135,20 @@ export function CommandPalette({
             aria-hidden="true"
           />
 
-          {/* Palette */}
+          {/* Palette — outer wrapper centers (framer-motion's scale/y
+              would otherwise override the Tailwind -translate-x-1/2). */}
+          <div
+            className="fixed inset-0 z-[81] flex items-start justify-center pt-[15vh] px-4 pointer-events-none"
+          >
           <motion.div
             initial={{ opacity: 0, y: -8, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.98 }}
             transition={{ type: 'spring', stiffness: 380, damping: 30 }}
-            className="fixed left-1/2 top-[15vh] z-[81] -translate-x-1/2 w-[92vw] max-w-[600px]"
+            className="pointer-events-auto w-full max-w-[600px]"
             role="dialog"
             aria-modal="true"
-            aria-label="Command palette"
+            aria-label="Command menu"
           >
             <Command
               className="overflow-hidden rounded-xl border border-border bg-card shadow-2xl"
@@ -155,13 +158,16 @@ export function CommandPalette({
               }}
               shouldFilter={true}
             >
-              {/* Input */}
+              {/* Input — framed as a command menu, NOT an AI search bar.
+                  ⌘ icon + "Run a command…" placeholder removes the
+                  Spotlight/ChatGPT-style implication that this can answer
+                  free-form questions. It just filters the list below. */}
               <div className="flex items-center gap-2 px-4 border-b border-border bg-card/95">
-                <Search className="w-4 h-4 text-muted-foreground/60 shrink-0" />
+                <span className="text-muted-foreground/60 font-mono text-[13px] shrink-0 select-none">⌘</span>
                 <Command.Input
                   value={search}
                   onValueChange={setSearch}
-                  placeholder="Search commands or tasks…"
+                  placeholder="Run a command…"
                   className="flex-1 h-12 bg-transparent text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none font-mono"
                 />
                 <kbd className="hidden sm:inline-flex items-center gap-0.5 text-[10px] font-mono text-muted-foreground/45 px-1.5 py-0.5 rounded border border-border bg-secondary/50">
@@ -441,6 +447,7 @@ export function CommandPalette({
               </div>
             </Command>
           </motion.div>
+          </div>
         </>
       )}
     </AnimatePresence>

@@ -70,14 +70,54 @@ export function Sheet({
     };
   }, [open]);
 
-  // Position-specific motion + class
   const isRight = position === 'right';
-  const motionInitial = isRight ? { opacity: 0, x: 32 } : { opacity: 0, scale: 0.96, y: 8 };
-  const motionAnimate = isRight ? { opacity: 1, x: 0 } : { opacity: 1, scale: 1, y: 0 };
-  const motionExit = isRight ? { opacity: 0, x: 32 } : { opacity: 0, scale: 0.97, y: 8 };
-  const positionClass = isRight
-    ? `fixed right-3 top-3 bottom-3 ${sizeWidthClass[size]}`
-    : `fixed left-1/2 top-[8vh] bottom-[8vh] -translate-x-1/2 ${sizeWidthClass[size]} max-h-[84vh]`;
+
+  // Why the wrapper-div pattern for center: framer-motion's animate prop
+  // sets inline transform styles (translateY/scale) that override the
+  // Tailwind `-translate-x-1/2` we'd otherwise use to center. So we put
+  // centering on a parent that DOESN'T animate, and only scale/opacity
+  // on the inner motion element. The right-slide pattern doesn't need
+  // this because its motion is a translateX from 32 → 0.
+  const inner = (
+    <>
+      {(title || description || !hideClose) && (
+        <header className="shrink-0 px-6 py-4 border-b border-border flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            {title && (
+              <h2 className="text-[18px] font-semibold text-foreground tracking-tight leading-tight">
+                {title}
+              </h2>
+            )}
+            {description && (
+              <p className="text-[12px] text-muted-foreground/75 mt-1 leading-relaxed">
+                {description}
+              </p>
+            )}
+          </div>
+          {!hideClose && (
+            <button
+              onClick={onClose}
+              className="text-muted-foreground hover:text-foreground hover:bg-secondary/50 rounded-md p-1 -mr-1 transition-colors shrink-0 -mt-0.5"
+              aria-label="Close"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </header>
+      )}
+      <div className="flex-1 overflow-y-auto min-h-0">{children}</div>
+      {footer && (
+        <footer className="shrink-0 px-5 py-3 border-t border-border bg-card/80">
+          {footer}
+        </footer>
+      )}
+    </>
+  );
+
+  const panelStyle: React.CSSProperties = {
+    boxShadow:
+      '0 32px 64px -32px rgba(0,0,0,0.55), 0 0 0 1px hsl(var(--border) / 0.5)',
+  };
 
   return (
     <AnimatePresence>
@@ -93,55 +133,41 @@ export function Sheet({
             onClick={onClose}
             aria-hidden="true"
           />
-          <motion.aside
-            key="panel"
-            initial={motionInitial}
-            animate={motionAnimate}
-            exit={motionExit}
-            transition={{ type: 'spring', stiffness: 380, damping: 34 }}
-            role="dialog"
-            aria-modal="true"
-            aria-label={title}
-            className={`${positionClass} z-50 bg-card border border-border flex flex-col rounded-2xl overflow-hidden`}
-            style={{
-              boxShadow:
-                '0 32px 64px -32px rgba(0,0,0,0.55), 0 0 0 1px hsl(var(--border) / 0.5)',
-            }}
-          >
-            {(title || description || !hideClose) && (
-              <header className="shrink-0 px-6 py-4 border-b border-border flex items-start justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  {title && (
-                    <h2 className="text-[18px] font-semibold text-foreground tracking-tight leading-tight">
-                      {title}
-                    </h2>
-                  )}
-                  {description && (
-                    <p className="text-[12px] text-muted-foreground/75 mt-1 leading-relaxed">
-                      {description}
-                    </p>
-                  )}
-                </div>
-                {!hideClose && (
-                  <button
-                    onClick={onClose}
-                    className="text-muted-foreground hover:text-foreground hover:bg-secondary/50 rounded-md p-1 -mr-1 transition-colors shrink-0 -mt-0.5"
-                    aria-label="Close"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                )}
-              </header>
-            )}
-
-            <div className="flex-1 overflow-y-auto min-h-0">{children}</div>
-
-            {footer && (
-              <footer className="shrink-0 px-5 py-3 border-t border-border bg-card/80">
-                {footer}
-              </footer>
-            )}
-          </motion.aside>
+          {isRight ? (
+            <motion.aside
+              key="panel"
+              initial={{ opacity: 0, x: 32 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 32 }}
+              transition={{ type: 'spring', stiffness: 380, damping: 34 }}
+              role="dialog"
+              aria-modal="true"
+              aria-label={title}
+              className={`fixed right-3 top-3 bottom-3 z-50 ${sizeWidthClass[size]} bg-card border border-border flex flex-col rounded-2xl overflow-hidden`}
+              style={panelStyle}
+            >
+              {inner}
+            </motion.aside>
+          ) : (
+            <div
+              key="panel-wrap"
+              className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
+            >
+              <motion.aside
+                initial={{ opacity: 0, scale: 0.96, y: 8 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.97, y: 8 }}
+                transition={{ type: 'spring', stiffness: 380, damping: 34 }}
+                role="dialog"
+                aria-modal="true"
+                aria-label={title}
+                className={`pointer-events-auto ${sizeWidthClass[size]} max-h-[88vh] bg-card border border-border flex flex-col rounded-2xl overflow-hidden`}
+                style={panelStyle}
+              >
+                {inner}
+              </motion.aside>
+            </div>
+          )}
         </>
       )}
     </AnimatePresence>
