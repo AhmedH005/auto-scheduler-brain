@@ -300,21 +300,24 @@ export function TaskForm({
       className="flex flex-col h-full"
     >
       <div className="flex-1 overflow-y-auto">
-        {/* Hero — title + description (Things 3 pattern, scaled up) */}
+        {/* Hero — title + color swatch + description (Things 3 × Cron pattern) */}
         <div className="px-6 pt-5 pb-3">
-          <input
-            value={title}
-            onChange={e => setTitle(e.target.value)}
-            placeholder="What's this task?"
-            autoFocus
-            className="w-full bg-transparent text-[20px] font-semibold text-foreground placeholder:text-muted-foreground/35 focus:outline-none border-0 p-0 leading-tight tracking-tight"
-          />
+          <div className="flex items-start gap-3">
+            <ColorSwatch value={color} onChange={setColor} />
+            <input
+              value={title}
+              onChange={e => setTitle(e.target.value)}
+              placeholder="What's this task?"
+              autoFocus
+              className="flex-1 bg-transparent text-[22px] font-semibold text-foreground placeholder:text-muted-foreground/35 focus:outline-none border-0 p-0 leading-tight tracking-tight"
+            />
+          </div>
           <textarea
             value={description}
             onChange={e => setDescription(e.target.value)}
             placeholder="Add notes (optional)…"
             rows={1}
-            className="mt-2 w-full bg-transparent text-[13px] text-foreground/75 placeholder:text-muted-foreground/35 focus:outline-none border-0 p-0 resize-none leading-relaxed"
+            className="mt-2 ml-7 w-[calc(100%-1.75rem)] bg-transparent text-[13px] text-foreground/75 placeholder:text-muted-foreground/35 focus:outline-none border-0 p-0 resize-none leading-relaxed"
             style={{ minHeight: 22 }}
             onInput={e => {
               const el = e.currentTarget;
@@ -483,7 +486,7 @@ export function TaskForm({
             Advanced
             {!advancedOpen && (
               <span className="ml-auto text-[9px] font-normal lowercase tracking-normal text-muted-foreground/40">
-                deep focus · splittable · snooze · color
+                deep focus · snooze
               </span>
             )}
           </button>
@@ -522,26 +525,7 @@ export function TaskForm({
                 />
               </PropertyRow>
 
-              {/* COLOR — moved here from essentials */}
-              <PropertyRow icon={Palette} label="Color">
-                <div className="flex items-center gap-1 flex-wrap justify-end ml-auto">
-                  {TASK_COLORS.map(c => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      title={c.label}
-                      onClick={() => setColor(c.id)}
-                      className={
-                        'w-4 h-4 rounded-full transition-all ' +
-                        (color === c.id
-                          ? 'ring-2 ring-offset-2 ring-offset-card ring-foreground/70 scale-110'
-                          : 'opacity-70 hover:opacity-100 hover:scale-110')
-                      }
-                      style={{ backgroundColor: c.border }}
-                    />
-                  ))}
-                </div>
-              </PropertyRow>
+              {/* Color moved to the title swatch — fewer fields here. */}
             </div>
           )}
         </div>
@@ -569,26 +553,50 @@ export function TaskForm({
         </div>
       </div>
 
-      {/* Sticky footer with primary action */}
-      <div className="shrink-0 px-5 py-3 border-t border-border bg-card/95 backdrop-blur flex items-center gap-2">
-        <button
-          type="button"
-          onClick={onClose}
-          className="px-3 h-9 rounded-md text-[12px] font-medium text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors"
-        >
-          Cancel
-        </button>
-        <div className="flex-1" />
-        <kbd className="hidden sm:inline-flex text-[9px] font-mono text-muted-foreground/55 px-1.5 py-0.5 rounded border border-border bg-secondary/40">
-          ⌘ ↵
-        </kbd>
-        <button
-          type="submit"
-          disabled={!title.trim() || !!overlapWarning}
-          className="inline-flex items-center justify-center gap-1.5 px-5 h-9 rounded-lg bg-primary text-primary-foreground text-[12px] font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:brightness-110 active:scale-[0.98] transition-all shadow-sm"
-        >
-          {isEditing ? 'Save changes' : 'Add task'}
-        </button>
+      {/* Sticky footer with primary action.
+          New-task mode adds "Save & add another" (Things 3 / Linear pattern)
+          for fast batch capture without re-opening the modal each time. */}
+      <div className="shrink-0 px-5 py-3 border-t border-border bg-card/95 backdrop-blur">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-3 h-10 rounded-lg text-[13px] font-medium text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors"
+          >
+            Cancel
+          </button>
+          <div className="flex-1" />
+          {!isEditing && (
+            <button
+              type="button"
+              onClick={() => {
+                if (!title.trim() || overlapWarning) return;
+                handleSubmit({ preventDefault: () => {} } as React.FormEvent);
+                // Reset for the next task in the same session
+                setTitle('');
+                setDescription('');
+                setSubtasks([]);
+                // keep duration / when / priority / repeat / deadline as defaults
+              }}
+              disabled={!title.trim() || !!overlapWarning}
+              className="inline-flex items-center justify-center gap-1.5 px-3 h-10 rounded-lg bg-secondary/40 text-foreground/80 border border-border text-[12px] font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-secondary/65 transition-all"
+              title="Save and clear the form for the next task"
+            >
+              Save & add another
+            </button>
+          )}
+          <button
+            type="submit"
+            disabled={!title.trim() || !!overlapWarning}
+            className="inline-flex items-center justify-center gap-1.5 px-5 h-10 rounded-lg bg-primary text-primary-foreground text-[13px] font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:brightness-110 active:scale-[0.98] transition-all shadow-md shadow-primary/30"
+          >
+            {isEditing ? 'Save changes' : 'Add task'}
+          </button>
+        </div>
+        <div className="flex items-center justify-end gap-2 mt-1.5 text-[10px] font-mono text-muted-foreground/40">
+          <kbd className="px-1 rounded border border-border/60 bg-secondary/30">⌘ ↵</kbd>
+          to {isEditing ? 'save' : 'add'}
+        </div>
       </div>
     </form>
   );
@@ -601,7 +609,7 @@ function Divider() {
 }
 
 function PropertyRow({
-  icon: Icon,
+  icon: _Icon, // kept in the API for backwards-compat but no longer rendered
   label,
   children,
   sub,
@@ -615,17 +623,18 @@ function PropertyRow({
     <div
       className={
         'flex items-center gap-3 py-2 rounded-md transition-colors ' +
-        (sub ? 'pl-10 pr-2' : 'px-3 hover:bg-secondary/25')
+        (sub ? 'pl-10 pr-2' : 'px-3 hover:bg-secondary/20')
       }
     >
       <div
         className={
-          'flex items-center gap-2 shrink-0 ' +
-          (sub ? 'w-[100px] text-muted-foreground/55' : 'w-[110px] text-muted-foreground/75')
+          'shrink-0 ' +
+          (sub
+            ? 'w-[100px] text-[12px] font-normal text-muted-foreground/55'
+            : 'w-[110px] text-[12px] font-medium text-muted-foreground/75')
         }
       >
-        <Icon className="w-3 h-3" />
-        <span className="text-[10px] font-mono uppercase tracking-wider">{label}</span>
+        {label}
       </div>
       <div className="flex-1 min-w-0 flex justify-end">{children}</div>
     </div>
@@ -765,7 +774,9 @@ function DurationControl({
   );
 }
 
-// Things/Sunsama pattern — quick chips for common deadlines + a custom date.
+// Things/Sunsama quick-chips. The raw date input only surfaces when
+// the user explicitly clicks "Custom…" or when the value doesn't match
+// any chip — keeps the row uncluttered for the 80% case.
 function DeadlineControl({
   value,
   onChange,
@@ -784,15 +795,22 @@ function DeadlineControl({
     { value: friday, label: 'Fri' },
   ];
 
+  // If the value is set to something that's NOT a chip, treat it as custom.
+  const isCustom = value !== '' && !chips.some(c => c.value === value);
+  const [showCustom, setShowCustom] = useState(isCustom);
+
   return (
-    <div className="inline-flex items-center gap-1 ml-auto">
+    <div className="inline-flex items-center gap-1 ml-auto flex-wrap justify-end">
       {chips.map(c => {
-        const active = value === c.value;
+        const active = !showCustom && value === c.value;
         return (
           <button
             key={c.label}
             type="button"
-            onClick={() => onChange(c.value)}
+            onClick={() => {
+              setShowCustom(false);
+              onChange(c.value);
+            }}
             className={
               'px-3 h-8 rounded-lg text-[12px] font-medium transition-all border ' +
               (active
@@ -804,12 +822,27 @@ function DeadlineControl({
           </button>
         );
       })}
-      <Input
-        type="date"
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        className="bg-secondary/30 border-border text-[12px] h-8 w-36 ml-1"
-      />
+      <button
+        type="button"
+        onClick={() => setShowCustom(s => !s)}
+        className={
+          'px-3 h-8 rounded-lg text-[12px] font-medium transition-all border ' +
+          (showCustom
+            ? 'bg-primary text-primary-foreground border-primary shadow-sm shadow-primary/25'
+            : 'bg-secondary/30 text-foreground/70 border-border hover:bg-secondary/55 hover:text-foreground')
+        }
+      >
+        Custom…
+      </button>
+      {showCustom && (
+        <Input
+          type="date"
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          className="bg-secondary/30 border-border text-[12px] h-8 w-36 ml-1"
+          autoFocus
+        />
+      )}
     </div>
   );
 }
@@ -858,6 +891,57 @@ function ToggleSwitch({
         {checked ? onLabel : offLabel}
       </span>
     </button>
+  );
+}
+
+// ─── Color swatch beside the title (Cron's calendar-color pattern) ──
+
+function ColorSwatch({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const current = TASK_COLORS.find(c => c.id === value) ?? TASK_COLORS[0];
+
+  return (
+    <div className="relative shrink-0 mt-1.5">
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="w-4 h-4 rounded-full ring-2 ring-offset-2 ring-offset-card ring-border hover:ring-foreground/60 transition-all"
+        style={{ backgroundColor: current.border }}
+        title="Change color"
+        aria-label="Change task color"
+      />
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute left-0 top-7 z-50 flex items-center gap-1.5 px-2.5 py-2 rounded-lg bg-card border border-border shadow-xl">
+            {TASK_COLORS.map(c => (
+              <button
+                key={c.id}
+                type="button"
+                title={c.label}
+                onClick={() => {
+                  onChange(c.id);
+                  setOpen(false);
+                }}
+                className={
+                  'w-4 h-4 rounded-full transition-all ' +
+                  (value === c.id
+                    ? 'ring-2 ring-offset-2 ring-offset-card ring-foreground/70 scale-110'
+                    : 'opacity-75 hover:opacity-100 hover:scale-110')
+                }
+                style={{ backgroundColor: c.border }}
+              />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 
