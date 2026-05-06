@@ -145,6 +145,144 @@
     --sidebar-border: 220 15% 84%;
     --sidebar-ring: 175 65% 36%;
   }
+
+  /* ─── Midnight (OLED-friendly pure black + violet) ──────────────────── */
+  .theme-midnight {
+    --background: 0 0% 0%;
+    --foreground: 240 8% 92%;
+    --card: 240 18% 5%;
+    --card-foreground: 240 8% 92%;
+    --popover: 240 20% 7%;
+    --popover-foreground: 240 8% 92%;
+    --primary: 260 80% 65%;
+    --primary-foreground: 0 0% 0%;
+    --secondary: 240 16% 9%;
+    --secondary-foreground: 240 8% 86%;
+    --muted: 240 16% 9%;
+    --muted-foreground: 240 8% 56%;
+    --accent: 260 50% 18%;
+    --accent-foreground: 260 80% 80%;
+    --destructive: 0 75% 58%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 14% 13%;
+    --input: 240 14% 12%;
+    --ring: 260 80% 65%;
+    --energy-deep: 260 70% 65%;
+    --energy-moderate: 280 60% 60%;
+    --energy-light: 200 60% 55%;
+    --priority-5: 0 70% 60%;
+    --priority-4: 25 80% 58%;
+    --priority-3: 260 80% 65%;
+    --priority-2: 240 30% 50%;
+    --priority-1: 240 8% 40%;
+    --block-focus: 260 80% 60%;
+    --block-break: 240 14% 13%;
+    --block-locked: 50 80% 55%;
+    --surface-hover: 240 14% 11%;
+    --surface-active: 240 14% 14%;
+    --grid-line: 240 14% 10%;
+    --time-marker: 260 80% 65%;
+    --sidebar-background: 0 0% 0%;
+    --sidebar-foreground: 240 8% 86%;
+    --sidebar-primary: 260 80% 65%;
+    --sidebar-primary-foreground: 0 0% 0%;
+    --sidebar-accent: 240 14% 10%;
+    --sidebar-accent-foreground: 240 8% 86%;
+    --sidebar-border: 240 14% 13%;
+    --sidebar-ring: 260 80% 65%;
+  }
+
+  /* ─── Paper (warm cream + sienna — Things 3 / iA Writer) ───────────── */
+  .theme-paper {
+    --background: 38 36% 96%;
+    --foreground: 25 25% 18%;
+    --card: 38 40% 99%;
+    --card-foreground: 25 25% 18%;
+    --popover: 38 40% 99%;
+    --popover-foreground: 25 25% 18%;
+    --primary: 20 70% 48%;
+    --primary-foreground: 38 40% 99%;
+    --secondary: 35 30% 92%;
+    --secondary-foreground: 25 25% 22%;
+    --muted: 35 30% 90%;
+    --muted-foreground: 30 15% 46%;
+    --accent: 20 50% 88%;
+    --accent-foreground: 20 70% 32%;
+    --destructive: 0 65% 48%;
+    --destructive-foreground: 38 40% 99%;
+    --border: 35 25% 84%;
+    --input: 35 25% 88%;
+    --ring: 20 70% 48%;
+    --energy-deep: 280 50% 48%;
+    --energy-moderate: 28 70% 50%;
+    --energy-light: 145 40% 42%;
+    --priority-5: 0 65% 50%;
+    --priority-4: 20 70% 48%;
+    --priority-3: 38 75% 48%;
+    --priority-2: 175 40% 42%;
+    --priority-1: 30 15% 50%;
+    --block-focus: 20 70% 48%;
+    --block-break: 35 25% 88%;
+    --block-locked: 38 75% 45%;
+    --surface-hover: 35 30% 88%;
+    --surface-active: 35 30% 86%;
+    --grid-line: 35 25% 88%;
+    --time-marker: 20 70% 48%;
+    --sidebar-background: 35 32% 94%;
+    --sidebar-foreground: 25 25% 22%;
+    --sidebar-primary: 20 70% 48%;
+    --sidebar-primary-foreground: 38 40% 99%;
+    --sidebar-accent: 35 28% 88%;
+    --sidebar-accent-foreground: 25 25% 22%;
+    --sidebar-border: 35 25% 84%;
+    --sidebar-ring: 20 70% 48%;
+  }
+
+  /* ─── Mono (grayscale only, no color signal) ────────────────────────── */
+  .theme-mono {
+    --background: 0 0% 6%;
+    --foreground: 0 0% 92%;
+    --card: 0 0% 9%;
+    --card-foreground: 0 0% 92%;
+    --popover: 0 0% 11%;
+    --popover-foreground: 0 0% 92%;
+    --primary: 0 0% 88%;
+    --primary-foreground: 0 0% 6%;
+    --secondary: 0 0% 13%;
+    --secondary-foreground: 0 0% 86%;
+    --muted: 0 0% 12%;
+    --muted-foreground: 0 0% 56%;
+    --accent: 0 0% 22%;
+    --accent-foreground: 0 0% 92%;
+    --destructive: 0 0% 70%; /* still grayscale — even errors are gray */
+    --destructive-foreground: 0 0% 6%;
+    --border: 0 0% 18%;
+    --input: 0 0% 14%;
+    --ring: 0 0% 70%;
+    --energy-deep: 0 0% 75%;
+    --energy-moderate: 0 0% 60%;
+    --energy-light: 0 0% 45%;
+    --priority-5: 0 0% 95%;
+    --priority-4: 0 0% 80%;
+    --priority-3: 0 0% 65%;
+    --priority-2: 0 0% 50%;
+    --priority-1: 0 0% 35%;
+    --block-focus: 0 0% 75%;
+    --block-break: 0 0% 18%;
+    --block-locked: 0 0% 60%;
+    --surface-hover: 0 0% 14%;
+    --surface-active: 0 0% 17%;
+    --grid-line: 0 0% 14%;
+    --time-marker: 0 0% 75%;
+    --sidebar-background: 0 0% 5%;
+    --sidebar-foreground: 0 0% 86%;
+    --sidebar-primary: 0 0% 88%;
+    --sidebar-primary-foreground: 0 0% 6%;
+    --sidebar-accent: 0 0% 14%;
+    --sidebar-accent-foreground: 0 0% 86%;
+    --sidebar-border: 0 0% 18%;
+    --sidebar-ring: 0 0% 70%;
+  }
 }
 
 @layer base {

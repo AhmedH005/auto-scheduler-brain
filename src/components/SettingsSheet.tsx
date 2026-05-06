@@ -18,9 +18,10 @@ import { Sheet } from '@/components/ui/sheet';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { ChevronRight, RotateCcw, Sunrise, Sparkles } from 'lucide-react';
+import { ChevronRight, RotateCcw, Sunrise, Sparkles, Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { UserSettings, DEFAULT_SETTINGS, EnergySuggestion } from '@/types/task';
+import { useTheme, THEMES, type Theme } from '@/contexts/ThemeContext';
 
 interface SettingsSheetProps {
   open: boolean;
@@ -42,6 +43,7 @@ export function SettingsSheet({
   onOpenIntegrations,
 }: SettingsSheetProps) {
   const { t } = useTranslation();
+  const { theme, setTheme } = useTheme();
 
   return (
     <Sheet
@@ -175,6 +177,54 @@ export function SettingsSheet({
                 className="text-data"
               />
             </Field>
+          </div>
+        </Section>
+
+        {/* Appearance — 5 themes shipping. Dark + Light are the
+            standard pair; Midnight is OLED-friendly black; Paper is
+            warm-cream like Things 3 / iA Writer; Mono strips color
+            entirely for pure focus. Themes persist via localStorage. */}
+        <Section title="Appearance">
+          <p className="text-[11px] text-muted-foreground/65 mb-2 leading-relaxed">
+            Pick a theme. The choice is local to this browser.
+          </p>
+          <div className="grid grid-cols-1 gap-1.5">
+            {THEMES.map(t => {
+              const active = theme === t.id;
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => setTheme(t.id as Theme)}
+                  className={
+                    'w-full flex items-center gap-3 px-3 py-2 rounded-lg border transition-colors text-left ' +
+                    (active
+                      ? 'bg-primary/10 border-primary/40'
+                      : 'bg-secondary/25 border-border hover:bg-secondary/45')
+                  }
+                >
+                  <span
+                    className="w-5 h-5 rounded-full shrink-0 ring-2 ring-offset-2 ring-offset-card"
+                    style={{
+                      backgroundColor: t.swatch,
+                      // ringColor varies by active state
+                      // (using box-shadow inline for active state)
+                      boxShadow: active
+                        ? `0 0 0 2px hsl(var(--card)), 0 0 0 4px ${t.swatch}`
+                        : `0 0 0 2px hsl(var(--card)), 0 0 0 3px hsl(var(--border))`,
+                    }}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[13px] font-medium text-foreground leading-tight">
+                      {t.label}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground/65 mt-0.5">
+                      {t.description}
+                    </div>
+                  </div>
+                  {active && <Check className="w-3.5 h-3.5 text-primary shrink-0" />}
+                </button>
+              );
+            })}
           </div>
         </Section>
 
