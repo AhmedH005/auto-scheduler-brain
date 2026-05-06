@@ -20,6 +20,9 @@ interface DayViewProps {
   onDeleteBlock: (blockId: string) => void;
   onQuickAdd: (date: string, time: string) => void;
   onEditTask?: (task: Task) => void;
+  /** A task got dragged from the sidebar onto this day's grid. Pin the
+   *  task to that datetime (scheduling_mode = 'fixed'). */
+  onDropTaskAt?: (taskId: string, date: string, time: string) => void;
 }
 
 // Full 24-hour grid (Cron / Google Calendar / Apple Calendar / Motion all
@@ -47,6 +50,7 @@ function yToMinutes(y: number): number {
 export function DayView({
   blocks, tasks, settings, selectedDate, onDateChange,
   onMoveBlock, onResizeBlock, onLockBlock, onUnlockBlock, onDeleteBlock, onQuickAdd, onEditTask,
+  onDropTaskAt,
 }: DayViewProps) {
   const { t } = useTranslation();
   const dateStr = format(selectedDate, 'yyyy-MM-dd');
@@ -209,6 +213,37 @@ export function DayView({
     onQuickAdd(dateStr, `${String(hour).padStart(2,'0')}:${String(minute).padStart(2,'0')}`);
   };
 
+  // Drag-from-sidebar drop target — same protocol as WeekView.
+  const [dropY, setDropY] = useState<number | null>(null);
+  const onGridDragOver = (e: React.DragEvent) => {
+    if (!onDropTaskAt) return;
+    if (!e.dataTransfer.types.includes('application/x-axis-task-id')) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const rect = e.currentTarget.getBoundingClientRect();
+    const y = e.clientY - rect.top;
+    const snappedMin = snapToGrid(yToMinutes(y));
+    const snappedY = ((snappedMin - START_HOUR * 60) / 60) * HOUR_HEIGHT;
+    setDropY(snappedY);
+  };
+  const onGridDragLeave = () => setDropY(null);
+  const onGridDrop = (e: React.DragEvent) => {
+    if (!onDropTaskAt) return;
+    e.preventDefault();
+    setDropY(null);
+    const taskId = e.dataTransfer.getData('application/x-axis-task-id');
+    if (!taskId) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const y = e.clientY - rect.top;
+    const snapped = snapToGrid(yToMinutes(y));
+    const { hour, minute } = minutesToTime(snapped);
+    onDropTaskAt(
+      taskId,
+      dateStr,
+      `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
+    );
+  };
+
   const now = new Date();
   const nowHour = now.getHours() + now.getMinutes() / 60;
   const nowOffset = (nowHour - START_HOUR) * HOUR_HEIGHT;
@@ -253,8 +288,15 @@ export function DayView({
 
           {/* Column */}
           <div
-            className={`flex-1 border-l border-border relative ${isToday(selectedDate) ? 'bg-primary/[0.02]' : ''}`}
+            className={
+              `flex-1 border-l border-border relative ` +
+              (isToday(selectedDate) ? 'bg-primary/[0.02] ' : '') +
+              (dropY !== null ? 'bg-primary/[0.05]' : '')
+            }
             onDoubleClick={handleDoubleClick}
+            onDragOver={onGridDragOver}
+            onDragLeave={onGridDragLeave}
+            onDrop={onGridDrop}
           >
             {Array.from({ length: TOTAL_HOURS }, (_, i) => (
               <div key={i} className="absolute w-full border-t border-grid-line" style={{ top: `${i * HOUR_HEIGHT}px` }} />
@@ -271,6 +313,17 @@ export function DayView({
             {/* Non-working overlays */}
             {workStart > START_HOUR && <div className="absolute inset-x-0 top-0 bg-background/60" style={{ height: `${(workStart - START_HOUR) * HOUR_HEIGHT}px` }} />}
             {workEnd < END_HOUR && <div className="absolute inset-x-0 bg-background/60" style={{ top: `${(workEnd - START_HOUR) * HOUR_HEIGHT}px`, height: `${(END_HOUR - workEnd) * HOUR_HEIGHT}px` }} />}
+
+            {/* Drop indicator */}
+            {dropY !== null && (
+              <div
+                className="absolute inset-x-0 z-30 pointer-events-none"
+                style={{ top: `${dropY}px` }}
+              >
+                <div className="h-0.5 bg-primary/80 rounded-full shadow-[0_0_8px_rgba(255,138,52,0.6)]" />
+                <div className="absolute -left-2 -top-1 w-3 h-3 rounded-full bg-primary shadow-md" />
+              </div>
+            )}
 
             {/* Now line */}
             {isToday(selectedDate) && nowHour >= START_HOUR && nowHour <= END_HOUR && (

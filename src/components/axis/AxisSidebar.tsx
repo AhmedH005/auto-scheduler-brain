@@ -353,10 +353,18 @@ function EmptyHint({ text }: { text: string }) {
 function TaskRow({ task, onClick }: { task: Task; onClick: () => void }) {
   const color = getTaskColor(task.color ?? task.calendar_color);
   const score = calculateScore(task);
+  // Drag-from-sidebar: encode the task id; calendar columns pick this up
+  // and pin the task to the dropped time slot.
+  const onDragStart = (e: React.DragEvent) => {
+    e.dataTransfer.setData('application/x-axis-task-id', task.id);
+    e.dataTransfer.effectAllowed = 'move';
+  };
   return (
     <button
       onClick={onClick}
-      className="w-full text-left flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-secondary/40 transition-colors group"
+      draggable
+      onDragStart={onDragStart}
+      className="w-full text-left flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-secondary/40 transition-colors group cursor-grab active:cursor-grabbing"
     >
       <div
         className="w-0.5 self-stretch rounded-full shrink-0"

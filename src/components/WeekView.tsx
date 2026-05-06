@@ -25,6 +25,9 @@ interface WeekViewProps {
   onMarkDone?: (blockId: string, actualMinutes?: number) => void;
   /** Skip a block (something came up). Removes it; rebuild re-places the task. */
   onMarkSkipped?: (blockId: string) => void;
+  /** A task got dragged from the sidebar onto a calendar slot. The task
+   *  should be pinned to that datetime (scheduling_mode = 'fixed'). */
+  onDropTaskAt?: (taskId: string, date: string, time: string) => void;
 }
 
 // Full 24-hour grid — see DayView.tsx for the rationale. Cutting at
@@ -119,6 +122,7 @@ export function WeekView({
   onEditTask,
   onMarkDone,
   onMarkSkipped,
+  onDropTaskAt,
 }: WeekViewProps) {
   const { t } = useTranslation();
   const [weekOffset, setWeekOffset] = useState(0);
@@ -316,6 +320,49 @@ export function WeekView({
     onQuickAdd(dateStr, timeStr);
   };
 
+  // ── Drag-from-sidebar drop targets ──────────────────────────────────
+  // A task dragged out of AxisSidebar carries `application/x-axis-task-id`
+  // on its dataTransfer. Each calendar column accepts the drop and pins
+  // the task to the snapped time slot (scheduling_mode = 'fixed').
+  // This is the Sunsama / Motion / Reclaim manual-override path.
+  const [dropIndicator, setDropIndicator] = useState<{
+    dayIndex: number;
+    y: number;
+  } | null>(null);
+
+  const onColumnDragOver = (e: React.DragEvent, dayIndex: number) => {
+    if (!onDropTaskAt) return;
+    if (!e.dataTransfer.types.includes('application/x-axis-task-id')) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const rect = e.currentTarget.getBoundingClientRect();
+    const y = e.clientY - rect.top;
+    // Snap visually to 15-minute grid for the indicator.
+    const snappedMin = snapToGrid(yToMinutes(y));
+    const snappedY = ((snappedMin - START_HOUR * 60) / 60) * HOUR_HEIGHT;
+    setDropIndicator({ dayIndex, y: snappedY });
+  };
+
+  const onColumnDragLeave = () => {
+    setDropIndicator(null);
+  };
+
+  const onColumnDrop = (e: React.DragEvent, dayIndex: number) => {
+    if (!onDropTaskAt) return;
+    e.preventDefault();
+    setDropIndicator(null);
+    const taskId = e.dataTransfer.getData('application/x-axis-task-id');
+    if (!taskId) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const y = e.clientY - rect.top;
+    const totalMin = yToMinutes(y);
+    const snapped = snapToGrid(totalMin);
+    const { hour, minute } = minutesToTime(snapped);
+    const dateStr = format(days[dayIndex], 'yyyy-MM-dd');
+    const timeStr = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+    onDropTaskAt(taskId, dateStr, timeStr);
+  };
+
   const now = new Date();
   const nowHour = now.getHours() + now.getMinutes() / 60;
   const nowOffset = (nowHour - START_HOUR) * HOUR_HEIGHT;
@@ -399,12 +446,21 @@ export function WeekView({
 
             const overlapLayouts = computeOverlapLayout(dayBlocks);
 
+            const isDropTarget = dropIndicator?.dayIndex === dayIndex;
+
             return (
               <div
                 key={dayIndex}
                 ref={el => { columnsRef.current[dayIndex] = el; }}
-                className={`flex-1 border-l border-border relative ${isToday(day) ? 'bg-primary/[0.02]' : ''}`}
+                className={
+                  `flex-1 border-l border-border relative ` +
+                  (isToday(day) ? 'bg-primary/[0.02] ' : '') +
+                  (isDropTarget ? 'bg-primary/[0.05]' : '')
+                }
                 onDoubleClick={e => handleColumnDoubleClick(e, dayIndex)}
+                onDragOver={e => onColumnDragOver(e, dayIndex)}
+                onDragLeave={onColumnDragLeave}
+                onDrop={e => onColumnDrop(e, dayIndex)}
               >
                 {/* Energy-zone gradient — morning deep / afternoon moderate / evening light.
                     Maps directly to the engine's slotEnergyLevel() so the user sees the
@@ -461,6 +517,18 @@ export function WeekView({
                   <div className="absolute inset-x-0 z-20 flex items-center pointer-events-none" style={{ top: `${nowOffset}px` }}>
                     <div className="w-2 h-2 rounded-full bg-time-marker -ml-1" />
                     <div className="flex-1 h-[2px] bg-time-marker" />
+                  </div>
+                )}
+
+                {/* Drop indicator — a dashed horizontal at the snapped slot
+                    while dragging a task from the sidebar over this column. */}
+                {isDropTarget && dropIndicator && (
+                  <div
+                    className="absolute inset-x-0 z-30 pointer-events-none"
+                    style={{ top: `${dropIndicator.y}px` }}
+                  >
+                    <div className="h-0.5 bg-primary/80 rounded-full shadow-[0_0_8px_rgba(255,138,52,0.6)]" />
+                    <div className="absolute -left-2 -top-1 w-3 h-3 rounded-full bg-primary shadow-md" />
                   </div>
                 )}
 

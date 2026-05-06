@@ -242,6 +242,34 @@ const Index = () => {
     setEditingTask(null);
     setTimeout(() => rebuild({ silent: true }), 100);
   };
+  /** Drag-from-sidebar drop handler — pins the dropped task to the
+   *  chosen datetime by switching it to fixed scheduling mode. The
+   *  engine's rebuild then respects that lock and routes other blocks
+   *  around it. Sunsama / Motion / Reclaim manual-override path. */
+  const handleDropTaskAt = (taskId: string, date: string, time: string) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+    const [hh, mm] = time.split(':').map(Number);
+    const startMin = hh * 60 + mm;
+    // Pinned tasks use their existing duration; fall back to 60min if
+    // the task was a no-duration calendar import.
+    const dur = task.total_duration > 0 ? task.total_duration : 60;
+    const endMin = Math.min(24 * 60, startMin + dur);
+    const eh = Math.floor(endMin / 60);
+    const em = endMin % 60;
+    const startIso = `${date}T${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:00`;
+    const endIso = `${date}T${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}:00`;
+    updateTask(taskId, {
+      ...task,
+      scheduling_mode: 'fixed',
+      start_datetime: startIso,
+      end_datetime: endIso,
+      total_duration: dur,
+    });
+    setTimeout(() => rebuild({ silent: true }), 50);
+    toast.success(`Pinned "${task.title || 'Untitled'}" to ${time}`);
+  };
+
   const handleDeleteTask = (id: string) => {
     deleteTask(id);
     setTimeout(() => rebuild({ silent: true }), 100);
@@ -391,6 +419,7 @@ const Index = () => {
               onDeleteBlock={deleteBlock}
               onQuickAdd={handleQuickAddFromCalendar}
               onEditTask={openEditTask}
+              onDropTaskAt={handleDropTaskAt}
             />
           )}
           {calendarView === 'week' && (
@@ -407,6 +436,7 @@ const Index = () => {
               onEditTask={openEditTask}
               onMarkDone={id => markBlockDone(id, 'confirmed')}
               onMarkSkipped={markBlockSkipped}
+              onDropTaskAt={handleDropTaskAt}
             />
           )}
           {calendarView === 'month' && (
