@@ -38,6 +38,11 @@ export interface Task {
   /** Engine won't schedule the task before this date (yyyy-MM-dd). Useful
    *  for "wait for W-2 in Jan" / "follow up if no reply by Friday". */
   snooze_until?: string | null;
+  /** Free-form tags / projects / areas for organization and filtering.
+   *  Things 3 / Linear / Sunsama / Motion all use a tag-or-project
+   *  abstraction; we keep it simple as a string array (single-user, no
+   *  hierarchy) — users set their own conventions. */
+  tags?: string[];
   // Present only on tasks synced from external calendar providers
   sync_source?: 'google' | 'microsoft';
   provider_event_id?: string;

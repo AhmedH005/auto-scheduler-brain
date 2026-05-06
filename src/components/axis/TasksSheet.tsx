@@ -78,6 +78,18 @@ export function TasksSheet({
     [tasks, today, weekEnd]
   );
 
+  // Tag filter — set of tags that must ALL be present on a task for it
+  // to pass. Empty set = no tag filter applied.
+  const [activeTags, setActiveTags] = useState<Set<string>>(new Set());
+
+  const allTags = useMemo(() => {
+    const s = new Set<string>();
+    for (const t of tasks) {
+      if (t.tags) for (const tag of t.tags) s.add(tag);
+    }
+    return Array.from(s).sort();
+  }, [tasks]);
+
   const filtered = useMemo(() => {
     let r = tasks;
     if (filter === 'today')
@@ -88,6 +100,16 @@ export function TasksSheet({
       );
     else if (filter === 'all') r = r.filter(x => x.status === 'active');
     else if (filter === 'done') r = r.filter(x => x.status === 'completed');
+
+    if (activeTags.size > 0) {
+      r = r.filter(t => {
+        if (!t.tags) return false;
+        for (const want of activeTags) {
+          if (!t.tags.includes(want)) return false;
+        }
+        return true;
+      });
+    }
 
     const sorted = [...r].sort((a, b) => {
       if (sort === 'score') return calculateScore(b) - calculateScore(a);
@@ -101,7 +123,16 @@ export function TasksSheet({
       return b.created_at.localeCompare(a.created_at);
     });
     return sorted;
-  }, [tasks, filter, sort, today, weekEnd]);
+  }, [tasks, filter, sort, today, weekEnd, activeTags]);
+
+  const toggleTag = (t: string) => {
+    setActiveTags(prev => {
+      const next = new Set(prev);
+      if (next.has(t)) next.delete(t);
+      else next.add(t);
+      return next;
+    });
+  };
 
   const filterChips: Array<{ key: Filter; label: string; count: number }> = [
     { key: 'all', label: 'Active', count: counts.all },
@@ -174,6 +205,41 @@ export function TasksSheet({
             </button>
           ))}
         </div>
+
+        {/* Tag filter — Linear / Things 3: click to toggle. Multiple
+            active tags = AND filter. */}
+        {allTags.length > 0 && (
+          <div className="flex items-center gap-1 mt-2 flex-wrap">
+            <span className="text-[10px] font-mono text-muted-foreground/55 mr-1">
+              tags
+            </span>
+            {allTags.map(t => {
+              const active = activeTags.has(t);
+              return (
+                <button
+                  key={t}
+                  onClick={() => toggleTag(t)}
+                  className={
+                    'px-1.5 h-5 rounded text-[10px] font-mono transition-colors ' +
+                    (active
+                      ? 'bg-primary/20 text-primary'
+                      : 'bg-secondary/40 text-muted-foreground/75 hover:bg-secondary/60 hover:text-foreground')
+                  }
+                >
+                  #{t}
+                </button>
+              );
+            })}
+            {activeTags.size > 0 && (
+              <button
+                onClick={() => setActiveTags(new Set())}
+                className="px-1.5 h-5 text-[10px] font-mono text-muted-foreground/60 hover:text-foreground"
+              >
+                clear
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* List */}

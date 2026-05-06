@@ -78,6 +78,7 @@ import {
   ListChecks,
   Plus,
   X as XIcon,
+  Tag,
 } from 'lucide-react';
 import { TASK_COLORS, DEFAULT_COLOR_ID } from '@/lib/taskColors';
 
@@ -213,7 +214,9 @@ export function TaskForm({
 
   // Advanced fields
   const [advancedOpen, setAdvancedOpen] = useState(false);
-  const [snoozeUntil, setSnoozeUntil] = useState(''); // not yet on Task type — staged for engine integration
+  const [snoozeUntil, setSnoozeUntil] = useState(initialTask?.snooze_until ?? '');
+  const [tags, setTags] = useState<string[]>(initialTask?.tags ?? []);
+  const [tagDraft, setTagDraft] = useState('');
 
   const overlapWarning = (() => {
     if (mode === 'fixed' && fixedDate && fixedStartTime && fixedEndTime) {
@@ -283,6 +286,7 @@ export function TaskForm({
       ...(initialTask?.calendar_color && { calendar_color: initialTask.calendar_color }),
       ...(subtasks.length > 0 && { subtasks }),
       ...(snoozeUntil && { snooze_until: snoozeUntil }),
+      ...(tags.length > 0 && { tags }),
     };
     onSubmit(task);
   };
@@ -522,6 +526,19 @@ export function TaskForm({
                   onChange={e => setSnoozeUntil(e.target.value)}
                   className="bg-secondary/50 border-border font-mono text-[11px] h-7 w-40 ml-auto"
                   title="Engine won't schedule this before the chosen date. Use for: 'wait for W-2', 'follow up if no reply', 'renew passport in 6mo'."
+                />
+              </PropertyRow>
+
+              {/* TAGS — Things 3 / Linear / Sunsama / Motion: tags or
+                  projects let users organize and filter. We keep it
+                  simple as a string array (no hierarchy) — type to add,
+                  Enter or comma to commit, click × to remove. */}
+              <PropertyRow icon={Tag} label="Tags">
+                <TagInput
+                  tags={tags}
+                  onChange={setTags}
+                  draft={tagDraft}
+                  onDraftChange={setTagDraft}
                 />
               </PropertyRow>
 
@@ -891,6 +908,69 @@ function ToggleSwitch({
         {checked ? onLabel : offLabel}
       </span>
     </button>
+  );
+}
+
+// ─── Tag input — Things 3 / Linear chip-input pattern ───────────────
+
+function TagInput({
+  tags,
+  onChange,
+  draft,
+  onDraftChange,
+}: {
+  tags: string[];
+  onChange: (tags: string[]) => void;
+  draft: string;
+  onDraftChange: (v: string) => void;
+}) {
+  const commit = () => {
+    const v = draft.trim().toLowerCase().replace(/^#/, '');
+    if (!v) return;
+    if (tags.includes(v)) {
+      onDraftChange('');
+      return;
+    }
+    onChange([...tags, v]);
+    onDraftChange('');
+  };
+  const onKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      commit();
+    } else if (e.key === 'Backspace' && draft === '' && tags.length > 0) {
+      // Backspace on empty input pops the last tag (Linear pattern)
+      onChange(tags.slice(0, -1));
+    }
+  };
+  return (
+    <div className="flex items-center gap-1 flex-wrap justify-end ml-auto">
+      {tags.map(t => (
+        <span
+          key={t}
+          className="inline-flex items-center gap-1 px-1.5 h-6 rounded-md bg-secondary/50 border border-border text-[10px] font-mono text-foreground/80"
+        >
+          #{t}
+          <button
+            type="button"
+            onClick={() => onChange(tags.filter(x => x !== t))}
+            className="text-muted-foreground/60 hover:text-destructive"
+            aria-label={`Remove tag ${t}`}
+          >
+            <XIcon className="w-2.5 h-2.5" />
+          </button>
+        </span>
+      ))}
+      <input
+        type="text"
+        value={draft}
+        onChange={e => onDraftChange(e.target.value)}
+        onKeyDown={onKey}
+        onBlur={commit}
+        placeholder={tags.length === 0 ? 'add tag…' : '+'}
+        className="bg-secondary/30 border border-border rounded h-6 px-2 text-[10px] font-mono w-20 focus:outline-none focus:ring-1 focus:ring-primary/50"
+      />
+    </div>
   );
 }
 

@@ -397,6 +397,14 @@ function TaskRow({ task, onClick }: { task: Task; onClick: () => void }) {
               {task.deadline.slice(5)}
             </span>
           )}
+          {task.tags && task.tags.slice(0, 2).map(tag => (
+            <span
+              key={tag}
+              className="px-1 rounded-sm bg-primary/12 text-primary/85 lowercase"
+            >
+              #{tag}
+            </span>
+          ))}
         </div>
       </div>
       {score >= 4 && (
