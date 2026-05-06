@@ -512,6 +512,8 @@ const Index = () => {
         onSyncAccount={syncAccount}
         onDisconnectAccount={disconnectAccount}
         onToggleCalendar={toggleCalendar}
+        blocks={blocks}
+        tasks={tasks}
       />
 
       <WeeklyRetrospectiveSheet
