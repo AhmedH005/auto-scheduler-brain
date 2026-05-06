@@ -35,11 +35,14 @@ import {
 import { Task, ScheduledBlock } from '@/types/task';
 import { calculateScore } from '@/engine/scoring';
 import { getTaskColor } from '@/lib/taskColors';
+import { MiniMonth } from '@/components/axis/MiniMonth';
 
 interface AxisSidebarProps {
   tasks: Task[];
   blocks: ScheduledBlock[];
   now: Date;
+  selectedDate: Date;
+  onSelectDate: (d: Date) => void;
   onTaskClick: (task: Task) => void;
   onBlockComplete: (id: string) => void;
   onBlockSkip: (id: string) => void;
@@ -50,6 +53,8 @@ export function AxisSidebar({
   tasks,
   blocks,
   now,
+  selectedDate,
+  onSelectDate,
   onTaskClick,
   onBlockComplete,
   onBlockSkip,
@@ -128,6 +133,13 @@ export function AxisSidebar({
   return (
     <aside className="h-full flex flex-col bg-card/50 border-r border-border overflow-hidden">
       <div className="flex-1 overflow-y-auto px-2 py-2 space-y-3">
+        {/* MINI MONTH — fast date jump (Cron / Apple Calendar pattern) */}
+        <MiniMonth
+          selectedDate={selectedDate}
+          blocks={blocks}
+          onSelectDate={onSelectDate}
+        />
+
         {/* RIGHT NOW */}
         <NowSection
           block={focusBlock}

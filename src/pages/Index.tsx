@@ -36,6 +36,7 @@ import { summarizeRebuild } from '@/engine/diff';
 
 import { TopBar } from '@/components/TopBar';
 import { AxisSidebar } from '@/components/axis/AxisSidebar';
+import { KeyboardCheatSheet } from '@/components/axis/KeyboardCheatSheet';
 import { DayView } from '@/components/DayView';
 import { WeekView } from '@/components/WeekView';
 import { MonthView } from '@/components/MonthView';
@@ -112,10 +113,17 @@ const Index = () => {
     return () => clearInterval(id);
   }, []);
 
-  // Layout state
-  const [calendarView, setCalendarView] = useState<CalendarView>('week');
+  // Layout state — initial view + sidebar adapt to viewport.
+  // Mobile (<768px) defaults to Day view (Week is unreadable on phones)
+  // and sidebar closed (it'd cover the calendar).
+  const isMobile =
+    typeof window !== 'undefined' && window.innerWidth < 768;
+  const [calendarView, setCalendarView] = useState<CalendarView>(() =>
+    isMobile ? 'day' : 'week'
+  );
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(() => !isMobile);
+  const [cheatSheetOpen, setCheatSheetOpen] = useState(false);
 
   // Modal/sheet state
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -195,6 +203,15 @@ const Index = () => {
       }
 
       if (inField) return;
+
+      // ? toggles the cheat sheet (Linear / Notion / Cron convention).
+      // Use e.key === '?' rather than the lowered version because shift+/
+      // produces '?' literally — matching is direct.
+      if (e.key === '?') {
+        e.preventDefault();
+        setCheatSheetOpen(o => !o);
+        return;
+      }
 
       if (key === 'a') {
         e.preventDefault();
@@ -295,23 +312,54 @@ const Index = () => {
         onOpenRetrospective={() => setInsightsSheetOpen(true)}
       />
 
-      {/* Three-pane body: sidebar + main calendar */}
-      <div className="flex flex-1 min-h-0 overflow-hidden">
+      {/* Three-pane body: sidebar + main calendar.
+          Mobile (<768px) treats the sidebar as an overlay drawer with
+          a backdrop, so it doesn't squish the calendar. Desktop keeps
+          it inline. */}
+      <div className="flex flex-1 min-h-0 overflow-hidden relative">
+        {/* Mobile-only backdrop when sidebar is open */}
+        <AnimatePresence>
+          {sidebarOpen && (
+            <motion.div
+              key="sidebar-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.18 }}
+              className="md:hidden fixed inset-0 z-30 bg-background/70 backdrop-blur-sm"
+              onClick={() => setSidebarOpen(false)}
+              aria-hidden="true"
+            />
+          )}
+        </AnimatePresence>
+
         <AnimatePresence initial={false}>
           {sidebarOpen && (
             <motion.div
               key="sidebar"
-              initial={{ width: 0, opacity: 0 }}
-              animate={{ width: 280, opacity: 1 }}
-              exit={{ width: 0, opacity: 0 }}
+              initial={{ x: -280, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: -280, opacity: 0 }}
               transition={{ type: 'spring', stiffness: 320, damping: 32 }}
-              className="shrink-0 overflow-hidden"
-              style={{ width: 280 }}
+              className="
+                shrink-0 overflow-hidden
+                max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-40 max-md:w-[280px] max-md:shadow-2xl
+                md:relative md:w-[280px]
+              "
             >
               <AxisSidebar
                 tasks={tasks}
                 blocks={blocks}
                 now={now}
+                selectedDate={selectedDate}
+                onSelectDate={d => {
+                  setSelectedDate(d);
+                  // On mobile, close drawer after picking a date so the
+                  // user lands on the calendar.
+                  if (typeof window !== 'undefined' && window.innerWidth < 768) {
+                    setSidebarOpen(false);
+                  }
+                }}
                 onTaskClick={openEditTask}
                 onBlockComplete={id => {
                   markBlockDone(id, 'confirmed');
@@ -524,6 +572,11 @@ const Index = () => {
         tasks={tasks}
         onConfirm={confirmAutoMarked}
         onMarkSkipped={markBlockSkipped}
+      />
+
+      <KeyboardCheatSheet
+        open={cheatSheetOpen}
+        onClose={() => setCheatSheetOpen(false)}
       />
 
       <OnboardingFlow
