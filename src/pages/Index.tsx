@@ -274,14 +274,18 @@ const Index = () => {
     deleteTask(id);
     setTimeout(() => rebuild({ silent: true }), 100);
   };
-  /** Calendar empty-slot click — opens TaskEditSheet with a new task,
-   *  pre-seeded as a fixed-time entry at the clicked slot. */
-  const handleQuickAddFromCalendar = (date: string, time: string) => {
+  /** Calendar empty-slot click OR drag-to-size — opens TaskEditSheet
+   *  with a new task pre-seeded as a fixed-time entry. duration is the
+   *  drag-sized length (or 60 for a plain double-click). */
+  const handleQuickAddFromCalendar = (
+    date: string,
+    time: string,
+    duration: number = 60
+  ) => {
     const hh = time.slice(0, 5);
     const start = `${date}T${hh}:00`;
-    // Default to a 60-minute block.
     const [h, m] = hh.split(':').map(Number);
-    const endMin = Math.min(22 * 60, h * 60 + m + 60);
+    const endMin = Math.min(24 * 60, h * 60 + m + duration);
     const endH = String(Math.floor(endMin / 60)).padStart(2, '0');
     const endM = String(endMin % 60).padStart(2, '0');
     const stub: Task = {
@@ -289,7 +293,7 @@ const Index = () => {
       title: '',
       description: undefined,
       color: undefined,
-      total_duration: 60,
+      total_duration: duration,
       priority: 3,
       deadline: null,
       energy_intensity: 'moderate',

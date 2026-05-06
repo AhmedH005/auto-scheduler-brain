@@ -19,7 +19,7 @@ interface WeekViewProps {
   onLockBlock: (blockId: string) => void;
   onUnlockBlock: (blockId: string) => void;
   onDeleteBlock: (blockId: string) => void;
-  onQuickAdd: (date: string, time: string) => void;
+  onQuickAdd: (date: string, time: string, durationMinutes?: number) => void;
   onEditTask?: (task: Task) => void;
   /** Mark a block as completed. actualMinutes optional — defaults to scheduled duration. */
   onMarkDone?: (blockId: string, actualMinutes?: number) => void;
@@ -28,6 +28,10 @@ interface WeekViewProps {
   /** A task got dragged from the sidebar onto a calendar slot. The task
    *  should be pinned to that datetime (scheduling_mode = 'fixed'). */
   onDropTaskAt?: (taskId: string, date: string, time: string) => void;
+  /** onQuickAdd accepts an optional duration (minutes) — used by the
+   *  click-and-drag-on-empty pattern to create a block sized by the
+   *  drag distance. Default behavior (no duration) keeps the standard
+   *  60-min stub for plain double-clicks. */
 }
 
 // Full 24-hour grid — see DayView.tsx for the rationale. Cutting at
@@ -320,6 +324,65 @@ export function WeekView({
     onQuickAdd(dateStr, timeStr);
   };
 
+  // ── Click-and-drag on empty area to size a new block ────────────────
+  // Google Calendar / Cron / Apple Calendar pattern: mouse down on empty
+  // grid, drag to size, release to create. Beats double-click + form
+  // because the duration is set in the same gesture as the start time.
+  const [dragCreate, setDragCreate] = useState<{
+    dayIndex: number;
+    startMin: number;
+    currentMin: number;
+  } | null>(null);
+  const dragCreateRef = useRef<typeof dragCreate>(null);
+  dragCreateRef.current = dragCreate;
+
+  const onColumnMouseDown = (e: React.MouseEvent, dayIndex: number) => {
+    // Only start when clicking the empty column itself, not a child
+    // (block / popover / overlay). Children either stop propagation
+    // or have pointer-events-none.
+    if (e.target !== e.currentTarget) return;
+    if (e.button !== 0) return;
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const y = e.clientY - rect.top;
+    const min = snapToGrid(yToMinutes(y));
+    setDragCreate({ dayIndex, startMin: min, currentMin: min });
+  };
+
+  useEffect(() => {
+    const move = (e: MouseEvent) => {
+      const dc = dragCreateRef.current;
+      if (!dc) return;
+      const col = columnsRef.current[dc.dayIndex];
+      if (!col) return;
+      const rect = col.getBoundingClientRect();
+      const y = e.clientY - rect.top;
+      const min = snapToGrid(yToMinutes(y));
+      setDragCreate(d => (d ? { ...d, currentMin: min } : null));
+    };
+    const up = () => {
+      const dc = dragCreateRef.current;
+      if (!dc) return;
+      const start = Math.min(dc.startMin, dc.currentMin);
+      const end = Math.max(dc.startMin, dc.currentMin);
+      const dur = end - start;
+      setDragCreate(null);
+      // Require at least one snap-step of drag — otherwise this was
+      // really just a click; don't trigger anything (double-click is
+      // the explicit "create at default" gesture).
+      if (dur < SNAP_MINUTES) return;
+      const { hour, minute } = minutesToTime(start);
+      const dateStr = format(days[dc.dayIndex], 'yyyy-MM-dd');
+      const timeStr = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+      onQuickAdd(dateStr, timeStr, dur);
+    };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+    return () => {
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', up);
+    };
+  }, [days, onQuickAdd]);
+
   // ── Drag-from-sidebar drop targets ──────────────────────────────────
   // A task dragged out of AxisSidebar carries `application/x-axis-task-id`
   // on its dataTransfer. Each calendar column accepts the drop and pins
@@ -453,10 +516,11 @@ export function WeekView({
                 key={dayIndex}
                 ref={el => { columnsRef.current[dayIndex] = el; }}
                 className={
-                  `flex-1 border-l border-border relative ` +
+                  `flex-1 border-l border-border relative cursor-cell ` +
                   (isToday(day) ? 'bg-primary/[0.02] ' : '') +
                   (isDropTarget ? 'bg-primary/[0.05]' : '')
                 }
+                onMouseDown={e => onColumnMouseDown(e, dayIndex)}
                 onDoubleClick={e => handleColumnDoubleClick(e, dayIndex)}
                 onDragOver={e => onColumnDragOver(e, dayIndex)}
                 onDragLeave={onColumnDragLeave}
@@ -531,6 +595,32 @@ export function WeekView({
                     <div className="absolute -left-2 -top-1 w-3 h-3 rounded-full bg-primary shadow-md" />
                   </div>
                 )}
+
+                {/* Drag-create ghost — appears while user is dragging on
+                    empty grid to size a new block. Released → onQuickAdd
+                    fires with the dragged duration. */}
+                {dragCreate && dragCreate.dayIndex === dayIndex && (() => {
+                  const a = Math.min(dragCreate.startMin, dragCreate.currentMin);
+                  const b = Math.max(dragCreate.startMin, dragCreate.currentMin);
+                  const top = ((a - START_HOUR * 60) / 60) * HOUR_HEIGHT;
+                  const height = ((b - a) / 60) * HOUR_HEIGHT;
+                  const ah = Math.floor(a / 60);
+                  const am = a % 60;
+                  const bh = Math.floor(b / 60);
+                  const bm = b % 60;
+                  const fmt = (h: number, m: number) =>
+                    `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+                  return (
+                    <div
+                      className="absolute left-1 right-1 z-30 rounded-md border-2 border-dashed border-primary bg-primary/15 pointer-events-none flex items-center justify-center"
+                      style={{ top: `${top}px`, height: `${Math.max(2, height)}px` }}
+                    >
+                      <span className="text-[10px] font-mono text-primary tabular-nums">
+                        {fmt(ah, am)}–{fmt(bh, bm)} · {b - a}m
+                      </span>
+                    </div>
+                  );
+                })()}
 
                 {/* Blocks (includes external calendar events) */}
                 <AnimatePresence mode="popLayout">

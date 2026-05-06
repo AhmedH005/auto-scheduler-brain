@@ -18,7 +18,7 @@ interface DayViewProps {
   onLockBlock: (blockId: string) => void;
   onUnlockBlock: (blockId: string) => void;
   onDeleteBlock: (blockId: string) => void;
-  onQuickAdd: (date: string, time: string) => void;
+  onQuickAdd: (date: string, time: string, durationMinutes?: number) => void;
   onEditTask?: (task: Task) => void;
   /** A task got dragged from the sidebar onto this day's grid. Pin the
    *  task to that datetime (scheduling_mode = 'fixed'). */
@@ -213,6 +213,57 @@ export function DayView({
     onQuickAdd(dateStr, `${String(hour).padStart(2,'0')}:${String(minute).padStart(2,'0')}`);
   };
 
+  // Click-and-drag-on-empty pattern (Google / Cron / Apple Calendar) —
+  // size a new block by drag distance instead of opening the form first.
+  const columnRef = useRef<HTMLDivElement>(null);
+  const [dragCreate, setDragCreate] = useState<{
+    startMin: number;
+    currentMin: number;
+  } | null>(null);
+  const dragCreateRef = useRef<typeof dragCreate>(null);
+  dragCreateRef.current = dragCreate;
+
+  const onColumnMouseDown = (e: React.MouseEvent) => {
+    if (e.target !== e.currentTarget) return;
+    if (e.button !== 0) return;
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const y = e.clientY - rect.top;
+    const min = snapToGrid(yToMinutes(y));
+    setDragCreate({ startMin: min, currentMin: min });
+  };
+
+  useEffect(() => {
+    const move = (e: MouseEvent) => {
+      const dc = dragCreateRef.current;
+      if (!dc || !columnRef.current) return;
+      const rect = columnRef.current.getBoundingClientRect();
+      const y = e.clientY - rect.top;
+      const min = snapToGrid(yToMinutes(y));
+      setDragCreate(d => (d ? { ...d, currentMin: min } : null));
+    };
+    const up = () => {
+      const dc = dragCreateRef.current;
+      if (!dc) return;
+      const start = Math.min(dc.startMin, dc.currentMin);
+      const end = Math.max(dc.startMin, dc.currentMin);
+      const dur = end - start;
+      setDragCreate(null);
+      if (dur < SNAP_MINUTES) return;
+      const { hour, minute } = minutesToTime(start);
+      onQuickAdd(
+        dateStr,
+        `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`,
+        dur
+      );
+    };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+    return () => {
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', up);
+    };
+  }, [dateStr, onQuickAdd]);
+
   // Drag-from-sidebar drop target — same protocol as WeekView.
   const [dropY, setDropY] = useState<number | null>(null);
   const onGridDragOver = (e: React.DragEvent) => {
@@ -288,11 +339,13 @@ export function DayView({
 
           {/* Column */}
           <div
+            ref={columnRef}
             className={
-              `flex-1 border-l border-border relative ` +
+              `flex-1 border-l border-border relative cursor-cell ` +
               (isToday(selectedDate) ? 'bg-primary/[0.02] ' : '') +
               (dropY !== null ? 'bg-primary/[0.05]' : '')
             }
+            onMouseDown={onColumnMouseDown}
             onDoubleClick={handleDoubleClick}
             onDragOver={onGridDragOver}
             onDragLeave={onGridDragLeave}
@@ -314,7 +367,7 @@ export function DayView({
             {workStart > START_HOUR && <div className="absolute inset-x-0 top-0 bg-background/60" style={{ height: `${(workStart - START_HOUR) * HOUR_HEIGHT}px` }} />}
             {workEnd < END_HOUR && <div className="absolute inset-x-0 bg-background/60" style={{ top: `${(workEnd - START_HOUR) * HOUR_HEIGHT}px`, height: `${(END_HOUR - workEnd) * HOUR_HEIGHT}px` }} />}
 
-            {/* Drop indicator */}
+            {/* Drop indicator (sidebar drop target) */}
             {dropY !== null && (
               <div
                 className="absolute inset-x-0 z-30 pointer-events-none"
@@ -324,6 +377,26 @@ export function DayView({
                 <div className="absolute -left-2 -top-1 w-3 h-3 rounded-full bg-primary shadow-md" />
               </div>
             )}
+
+            {/* Drag-create ghost (click-and-drag on empty grid) */}
+            {dragCreate && (() => {
+              const a = Math.min(dragCreate.startMin, dragCreate.currentMin);
+              const b = Math.max(dragCreate.startMin, dragCreate.currentMin);
+              const top = ((a - START_HOUR * 60) / 60) * HOUR_HEIGHT;
+              const height = ((b - a) / 60) * HOUR_HEIGHT;
+              const fmt = (m: number) =>
+                `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+              return (
+                <div
+                  className="absolute left-1 right-1 z-30 rounded-md border-2 border-dashed border-primary bg-primary/15 pointer-events-none flex items-center justify-center"
+                  style={{ top: `${top}px`, height: `${Math.max(2, height)}px` }}
+                >
+                  <span className="text-[11px] font-mono text-primary tabular-nums">
+                    {fmt(a)}–{fmt(b)} · {b - a}m
+                  </span>
+                </div>
+              );
+            })()}
 
             {/* Now line */}
             {isToday(selectedDate) && nowHour >= START_HOUR && nowHour <= END_HOUR && (
