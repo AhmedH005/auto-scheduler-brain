@@ -212,6 +212,52 @@ export function WeekView({
     return { top: `${top}px`, height: `${Math.max(height, 12)}px` };
   };
 
+  // Live overlap detection while a block is being dragged. Cron / Motion
+  // surface conflicts during the gesture so the user can correct mid-drag
+  // instead of only learning after release. Returns the block being
+  // overlapped (if any) so we can show its title in the warning chip.
+  const dragConflict = useMemo(() => {
+    if (!dragState) return null;
+    const dragged = blocks.find(b => b.id === dragState.blockId);
+    if (!dragged) return null;
+    const delta = snapToGrid(dragState.currentDeltaMin);
+    let newStartMin: number;
+    let newEndMin: number;
+    const origDur = dragState.originalEndMin - dragState.originalStartMin;
+    if (dragState.type === 'move') {
+      newStartMin = clampMinutes(
+        dragState.originalStartMin + delta,
+        START_HOUR * 60,
+        END_HOUR * 60 - origDur
+      );
+      newEndMin = newStartMin + origDur;
+    } else {
+      newStartMin = dragState.originalStartMin;
+      newEndMin = clampMinutes(
+        dragState.originalEndMin + delta,
+        dragState.originalStartMin + 15,
+        END_HOUR * 60
+      );
+    }
+    const targetDate = format(days[dragState.targetDayIndex], 'yyyy-MM-dd');
+    for (const b of blocks) {
+      if (b.id === dragState.blockId) continue;
+      const bDate = format(new Date(b.start_time), 'yyyy-MM-dd');
+      if (bDate !== targetDate) continue;
+      const bStart = new Date(b.start_time);
+      const bEnd = new Date(b.end_time);
+      const bStartMin = bStart.getHours() * 60 + bStart.getMinutes();
+      const bEndMin = bEnd.getHours() * 60 + bEnd.getMinutes();
+      if (newStartMin < bEndMin && newEndMin > bStartMin) {
+        return b;
+      }
+    }
+    return null;
+  }, [dragState, blocks, days]);
+  const dragConflictTask = dragConflict
+    ? tasks.find(t => t.id === dragConflict.task_id)
+    : null;
+
   const handleMouseDown = useCallback((e: React.MouseEvent, blockId: string, type: 'move' | 'resize') => {
     e.stopPropagation();
     e.preventDefault();
@@ -622,6 +668,17 @@ export function WeekView({
                   );
                 })()}
 
+                {/* Conflict chip — visible only while dragging a block
+                    over a slot that overlaps another block on this day. */}
+                {dragState && dragState.targetDayIndex === dayIndex && dragConflict && (
+                  <div className="absolute top-1 left-1 right-1 z-40 pointer-events-none flex justify-center">
+                    <div className="px-2 py-1 rounded-md bg-destructive text-white text-[10px] font-mono font-medium shadow-lg flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-white/90 animate-pulse" />
+                      overlaps "{dragConflictTask?.title ?? 'another block'}"
+                    </div>
+                  </div>
+                )}
+
                 {/* Blocks (includes external calendar events) */}
                 <AnimatePresence mode="popLayout">
                 {dayBlocks.map(block => {
@@ -664,6 +721,8 @@ export function WeekView({
                       className={`absolute rounded-sm border-l-2 px-1.5 py-0.5 z-10 group transition-colors select-none ${
                         isDragging ? 'opacity-80 shadow-lg cursor-grabbing z-30' : 'cursor-grab hover:brightness-110'
                       } ${isSelected ? 'ring-1 ring-primary' : ''} ${
+                        isDragging && dragConflict ? 'ring-2 ring-destructive shadow-destructive/40' : ''
+                      } ${
                         block.completed_at ? 'opacity-55 hover:opacity-80' : ''
                       }`}
                       style={{ ...posStyle, ...layoutStyle, ...colorStyle }}
