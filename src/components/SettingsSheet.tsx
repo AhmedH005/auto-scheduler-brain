@@ -178,6 +178,51 @@ export function SettingsSheet({
           </div>
         </Section>
 
+        {/* Notifications — Motion / Reclaim / Sunsama / Cron all have
+            "alert me X minutes before each block." We do the in-tab
+            variant (no service worker yet — Phase 2). */}
+        <Section title="Notifications">
+          <p className="text-[11px] text-muted-foreground/65 mb-2 leading-relaxed">
+            Browser alert before each scheduled block starts. Permission
+            is requested on first enable; denying disables silently.
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Pre-block alerts">
+              <Button
+                type="button"
+                size="sm"
+                variant={settings.notifications_enabled ? 'default' : 'ghost'}
+                onClick={() =>
+                  onUpdate({
+                    notifications_enabled: !settings.notifications_enabled,
+                  })
+                }
+                className="h-8 w-full justify-start"
+              >
+                {settings.notifications_enabled ? 'On' : 'Off'}
+              </Button>
+            </Field>
+            <Field label="Lead time (min)">
+              <Input
+                type="number"
+                min={1}
+                max={60}
+                value={settings.notification_lead_minutes ?? 5}
+                onChange={e =>
+                  onUpdate({
+                    notification_lead_minutes: Math.max(
+                      1,
+                      Math.min(60, Number(e.target.value))
+                    ),
+                  })
+                }
+                disabled={!settings.notifications_enabled}
+                className="text-data"
+              />
+            </Field>
+          </div>
+        </Section>
+
         <div className="pt-2 border-t border-border space-y-1">
           <button
             onClick={onOpenIntegrations}

@@ -88,6 +88,12 @@ export interface UserSettings {
   max_total_hours_per_day: number;
   min_chunk_size: number; // minutes
   max_chunk_size: number; // minutes
+  /** Browser pre-block notifications. Off by default — flipping on
+   *  triggers Notification.requestPermission() the first time. */
+  notifications_enabled?: boolean;
+  /** How many minutes before a block starts to fire the notification.
+   *  Motion / Reclaim default to 5; Cron defaults to 1 + 5. */
+  notification_lead_minutes?: number;
 }
 
 /** Per-day overrides. Lets a user say "today is an easy day, cap me at 4h"
@@ -117,6 +123,8 @@ export const DEFAULT_SETTINGS: UserSettings = {
   max_total_hours_per_day: 8,
   min_chunk_size: 25,
   max_chunk_size: 120,
+  notifications_enabled: false,
+  notification_lead_minutes: 5,
 };
 
 // ─────────────────────────────────────────────────────────────────────────

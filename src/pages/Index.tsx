@@ -31,6 +31,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { useScheduler } from '@/hooks/useScheduler';
 import { useExternalCalendars } from '@/hooks/useExternalCalendars';
+import { useBlockNotifications } from '@/hooks/useBlockNotifications';
 import { Task } from '@/types/task';
 import { summarizeRebuild } from '@/engine/diff';
 
@@ -105,6 +106,10 @@ const Index = () => {
   useEffect(() => {
     if (syncedTasks.length > 0) importSyncedTasks(syncedTasks);
   }, [syncedTasks]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Pre-block browser notifications — fires N minutes before each
+  // upcoming block. Off by default; user opts in via Settings.
+  useBlockNotifications(blocks, tasks, settings);
 
   // Tick every 30s so the now-line and "right now" counters update
   const [now, setNow] = useState(() => new Date());
