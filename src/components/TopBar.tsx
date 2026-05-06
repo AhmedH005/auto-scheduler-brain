@@ -19,7 +19,6 @@ import { format, addDays, addMonths, addWeeks, startOfWeek, endOfWeek } from 'da
 import {
   ChevronLeft,
   ChevronRight,
-  Search,
   Sparkles,
   Settings,
   Brain,
@@ -44,7 +43,6 @@ interface TopBarProps {
   onViewChange: (view: CalendarView) => void;
   onDateChange: (date: Date) => void;
   onJumpToToday: () => void;
-  onOpenPalette: () => void;
   onAddTask: () => void;
   onOpenSettings: () => void;
   onOpenRetrospective: () => void;
@@ -59,7 +57,6 @@ export function TopBar({
   onViewChange,
   onDateChange,
   onJumpToToday,
-  onOpenPalette,
   onAddTask,
   onOpenSettings,
   onOpenRetrospective,
@@ -172,19 +169,6 @@ export function TopBar({
         >
           <Plus className="w-3.5 h-3.5" />
           <span className="hidden sm:inline">Task</span>
-        </button>
-
-        <button
-          onClick={onOpenPalette}
-          className="inline-flex items-center gap-2 h-7 px-2.5 rounded bg-secondary/40 hover:bg-secondary/70 border border-border/60 hover:border-primary/30 transition-all text-muted-foreground hover:text-foreground"
-          aria-label="Open command palette"
-          title="Search or run a command (⌘K)"
-        >
-          <Search className="w-3 h-3" />
-          <span className="hidden md:inline text-[11px]">Search</span>
-          <kbd className="hidden md:inline text-[9px] font-mono px-1 py-px rounded border border-border bg-background/60 text-muted-foreground/70">
-            ⌘K
-          </kbd>
         </button>
 
         {hasInsights && (

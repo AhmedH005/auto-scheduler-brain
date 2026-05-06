@@ -37,11 +37,9 @@ import { summarizeRebuild } from '@/engine/diff';
 
 import { TopBar } from '@/components/TopBar';
 import { AxisSidebar } from '@/components/axis/AxisSidebar';
-import { KeyboardCheatSheet } from '@/components/axis/KeyboardCheatSheet';
 import { DayView } from '@/components/DayView';
 import { WeekView } from '@/components/WeekView';
 import { MonthView } from '@/components/MonthView';
-import { CommandPalette } from '@/components/CommandPalette';
 import { TaskEditSheet } from '@/components/TaskEditSheet';
 import { TasksSheet } from '@/components/axis/TasksSheet';
 import { SettingsSheet } from '@/components/SettingsSheet';
@@ -128,10 +126,8 @@ const Index = () => {
   );
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [sidebarOpen, setSidebarOpen] = useState(() => !isMobile);
-  const [cheatSheetOpen, setCheatSheetOpen] = useState(false);
 
   // Modal/sheet state
-  const [paletteOpen, setPaletteOpen] = useState(false);
   // editingTask = null AND taskSheetOpen = true → "new task" mode.
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [taskSheetOpen, setTaskSheetOpen] = useState(false);
@@ -191,11 +187,6 @@ const Index = () => {
       const meta = e.metaKey || e.ctrlKey;
       const key = e.key.toLowerCase();
 
-      if (meta && key === 'k') {
-        e.preventDefault();
-        setPaletteOpen(true);
-        return;
-      }
       if (meta && key === 'n') {
         e.preventDefault();
         openNewTask();
@@ -208,15 +199,6 @@ const Index = () => {
       }
 
       if (inField) return;
-
-      // ? toggles the cheat sheet (Linear / Notion / Cron convention).
-      // Use e.key === '?' rather than the lowered version because shift+/
-      // produces '?' literally — matching is direct.
-      if (e.key === '?') {
-        e.preventDefault();
-        setCheatSheetOpen(o => !o);
-        return;
-      }
 
       if (key === 'a') {
         e.preventDefault();
@@ -343,7 +325,6 @@ const Index = () => {
         onViewChange={setCalendarView}
         onDateChange={setSelectedDate}
         onJumpToToday={() => setSelectedDate(new Date())}
-        onOpenPalette={() => setPaletteOpen(true)}
         onAddTask={openNewTask}
         onOpenSettings={() => setSettingsOpen(true)}
         onOpenRetrospective={() => setInsightsSheetOpen(true)}
@@ -464,44 +445,6 @@ const Index = () => {
       </div>
 
       {/* ─── Modals & sheets ─── */}
-      <CommandPalette
-        open={paletteOpen}
-        onOpenChange={setPaletteOpen}
-        tasks={tasks}
-        blocks={blocks}
-        pendingExists={pendingResult !== null}
-        canUndo={canUndo}
-        atRiskCount={summary.atRiskTasks}
-        droppedCount={summary.droppedTasks}
-        todayMode={getDayMode(format(new Date(), 'yyyy-MM-dd'))}
-        energyInsight={insights.energy}
-        capacityInsight={insights.capacity}
-        onPreviewRebuild={previewRebuild}
-        onApplyPending={handleApplyPreview}
-        onCancelPending={cancelPending}
-        onUndo={undo}
-        onReplanFromNow={replanFromNow}
-        onSetTodayMode={mode => setDayMode(format(new Date(), 'yyyy-MM-dd'), mode)}
-        onApplyLearnedEnergy={() => {
-          applyLearnedDeepWindow();
-          toast.success('Deep window updated');
-        }}
-        onApplyLearnedCapacity={() => {
-          applyLearnedCap();
-          toast.success(`Daily cap set to ${insights.capacity.suggested_cap_hours}h`);
-        }}
-        onOpenRetrospective={() => setInsightsSheetOpen(true)}
-        onAddTask={openNewTask}
-        onOpenSettings={() => setSettingsOpen(true)}
-        onOpenIntegrations={() => setIntegrationsOpen(true)}
-        onSwitchView={setCalendarView}
-        onJumpToToday={() => setSelectedDate(new Date())}
-        onJumpToTask={id => {
-          const task = tasks.find(t => t.id === id);
-          if (task) openEditTask(task);
-        }}
-        onToggleSidebar={() => setSidebarOpen(s => !s)}
-      />
 
       {/* TaskEditSheet — handles BOTH new (task=null) and edit (task=Task).
           One surface for both flows; Things 3 / Sunsama pattern. */}
@@ -611,11 +554,6 @@ const Index = () => {
         tasks={tasks}
         onConfirm={confirmAutoMarked}
         onMarkSkipped={markBlockSkipped}
-      />
-
-      <KeyboardCheatSheet
-        open={cheatSheetOpen}
-        onClose={() => setCheatSheetOpen(false)}
       />
 
       <OnboardingFlow
